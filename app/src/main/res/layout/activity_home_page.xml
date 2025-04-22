@@ -1,0 +1,149 @@
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- Background Image -->
+    <ImageView
+        android:id="@+id/bgImage"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:src="@drawable/homepageback"
+        android:scaleType="centerCrop"
+        android:alpha="0.8" />
+
+    <!-- White Overlay -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#FFFFFF"
+        android:alpha="0.2" />
+
+    <!-- Header -->
+    <LinearLayout
+        android:id="@+id/header"
+        android:layout_width="match_parent"
+        android:layout_height="180dp"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:background="#3359A2"
+        android:layout_alignParentTop="true">
+
+        <ImageView
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/books_white"
+            android:layout_marginRight="10dp"
+            app:tint="#FFFFFF" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="eLect"
+            android:textSize="35sp"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- Grid of Icons -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@id/header"
+        android:padding="20dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center_horizontal">
+
+            <!-- Row 1 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:weightSum="2"
+                android:layout_marginBottom="20dp">
+
+                <include
+                    android:id="@+id/icon1"
+                    layout="@layout/home_icon_item"
+                    android:layout_width="0dp"
+                    android:layout_weight="1" />
+
+                <include
+                    android:id="@+id/icon2"
+                    layout="@layout/home_icon_item"
+                    android:layout_width="0dp"
+                    android:layout_weight="1" />
+            </LinearLayout>
+
+            <!-- Row 2 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:weightSum="2"
+                android:layout_marginBottom="20dp">
+
+                <include
+                    android:id="@+id/icon3"
+                    layout="@layout/home_icon_item"
+                    android:layout_width="0dp"
+                    android:layout_weight="1" />
+
+                <include
+                    android:id="@+id/icon4"
+                    layout="@layout/home_icon_item"
+                    android:layout_width="0dp"
+                    android:layout_weight="1" />
+            </LinearLayout>
+
+            <!-- Row 3 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:weightSum="2"
+                android:layout_marginBottom="20dp">
+
+                <include
+                    android:id="@+id/icon5"
+                    layout="@layout/home_icon_item"
+                    android:layout_width="0dp"
+                    android:layout_weight="1" />
+
+                <include
+                    android:id="@+id/icon6"
+                    layout="@layout/home_icon_item"
+                    android:layout_width="0dp"
+                    android:layout_weight="1" />
+            </LinearLayout>
+
+            <!-- Row 4 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:weightSum="2"
+                android:layout_marginBottom="20dp">
+
+                <include
+                    android:id="@+id/icon7"
+                    layout="@layout/home_icon_item"
+                    android:layout_width="0dp"
+                    android:layout_weight="1" />
+
+                <include
+                    android:id="@+id/icon8"
+                    layout="@layout/home_icon_item"
+                    android:layout_width="0dp"
+                    android:layout_weight="1" />
+            </LinearLayout>
+
+        </LinearLayout>
+    </ScrollView>
+
+
+</RelativeLayout>
