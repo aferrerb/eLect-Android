@@ -23,7 +23,7 @@
     <LinearLayout
         android:id="@+id/header"
         android:layout_width="match_parent"
-        android:layout_height="180dp"
+        android:layout_height="150dp"
         android:orientation="horizontal"
         android:gravity="center"
         android:background="#3359A2"
@@ -45,105 +45,23 @@
             android:textStyle="bold" />
     </LinearLayout>
 
-    <!-- Grid of Icons -->
+    <!-- Scrollable 2×4 grid -->
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_below="@id/header"
-        android:padding="20dp">
+        android:layout_below="@id/header">
 
-        <LinearLayout
+        <androidx.gridlayout.widget.GridLayout
+            android:id="@+id/iconGrid"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:gravity="center_horizontal">
-
-            <!-- Row 1 -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:weightSum="2"
-                android:layout_marginBottom="20dp">
-
-                <include
-                    android:id="@+id/icon1"
-                    layout="@layout/home_icon_item"
-                    android:layout_width="0dp"
-                    android:layout_weight="1" />
-
-                <include
-                    android:id="@+id/icon2"
-                    layout="@layout/home_icon_item"
-                    android:layout_width="0dp"
-                    android:layout_weight="1" />
-            </LinearLayout>
-
-            <!-- Row 2 -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:weightSum="2"
-                android:layout_marginBottom="20dp">
-
-                <include
-                    android:id="@+id/icon3"
-                    layout="@layout/home_icon_item"
-                    android:layout_width="0dp"
-                    android:layout_weight="1" />
-
-                <include
-                    android:id="@+id/icon4"
-                    layout="@layout/home_icon_item"
-                    android:layout_width="0dp"
-                    android:layout_weight="1" />
-            </LinearLayout>
-
-            <!-- Row 3 -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:weightSum="2"
-                android:layout_marginBottom="20dp">
-
-                <include
-                    android:id="@+id/icon5"
-                    layout="@layout/home_icon_item"
-                    android:layout_width="0dp"
-                    android:layout_weight="1" />
-
-                <include
-                    android:id="@+id/icon6"
-                    layout="@layout/home_icon_item"
-                    android:layout_width="0dp"
-                    android:layout_weight="1" />
-            </LinearLayout>
-
-            <!-- Row 4 -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:weightSum="2"
-                android:layout_marginBottom="20dp">
-
-                <include
-                    android:id="@+id/icon7"
-                    layout="@layout/home_icon_item"
-                    android:layout_width="0dp"
-                    android:layout_weight="1" />
-
-                <include
-                    android:id="@+id/icon8"
-                    layout="@layout/home_icon_item"
-                    android:layout_width="0dp"
-                    android:layout_weight="1" />
-            </LinearLayout>
-
-        </LinearLayout>
+            android:padding="20dp"
+            app:columnCount="2"
+            app:rowCount="4"
+            app:alignmentMode="alignMargins"
+            app:useDefaultMargins="true" />
     </ScrollView>
+
 
 
 </RelativeLayout>
