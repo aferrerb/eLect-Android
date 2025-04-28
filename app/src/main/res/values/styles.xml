@@ -1,7 +1,15 @@
 <resources>
-<style name="SplashTheme" parent="Theme.AppCompat.Light.NoActionBar">
+<style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar">
+    <!-- your toolbar color -->
+    <item name="colorPrimary">@color/header_blue</item>
+    <item name="colorOnPrimary">@color/white</item>
     <item name="android:windowBackground">@color/white</item>
     <item name="android:windowNoTitle">true</item>
     <item name="android:windowFullscreen">true</item>
+    <!-- make the status bar the same color -->
+    <!-- for Material3 -->
+    <item name="colorPrimaryVariant">@color/header_blue</item>
+    <!-- ensure API-21+ status bar picks it up -->
+    <item name="android:statusBarColor">@color/header_blue</item>
 </style>
 </resources>

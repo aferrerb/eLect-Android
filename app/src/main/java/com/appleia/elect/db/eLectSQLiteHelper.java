@@ -1,15 +1,57 @@
-package com.appleia.elect;
+package com.appleia.elect.db;
 import android.content.Context;
+import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
+import android.util.Log;
 
 import androidx.annotation.Nullable;
+
+import com.google.gson.Gson;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 public class eLectSQLiteHelper extends SQLiteOpenHelper {
 
     private static final String DATABASE_NAME = "eLect.db";
-    private static final int DATABASE_VERSION = 1;
 
+    private static final int DATABASE_VERSION = 2;
+    private final Context ctx;
+
+    public eLectSQLiteHelper(Context context) {
+        super(context, DATABASE_NAME, null, DATABASE_VERSION);
+        this.ctx = context;
+        copyDatabaseIfNeeded();
+    }
+    public void ensureDatabaseCopied() {
+        copyDatabaseIfNeeded();
+    }
+    private void copyDatabaseIfNeeded() {
+        File dbFile = ctx.getDatabasePath(DATABASE_NAME);
+        if (!dbFile.exists()) {
+            // ensure parent dirs
+            dbFile.getParentFile().mkdirs();
+            try (InputStream is = ctx.getAssets().open("database/" + DATABASE_NAME);
+                 OutputStream os = new FileOutputStream(dbFile)) {
+                byte[] buffer = new byte[4096];
+                int length;
+                while ((length = is.read(buffer)) > 0) {
+                    os.write(buffer, 0, length);
+                }
+                os.flush();
+            } catch (IOException e) {
+                throw new RuntimeException("Error copying preloaded DB", e);
+            }
+        }
+    }
 
     // Table name
     public static final String TABLE_CATEGORIES = "CATEGORIES";
@@ -35,7 +77,7 @@ public class eLectSQLiteHelper extends SQLiteOpenHelper {
 
     // Column names
     public static final String COLUMN_CATEGORIES_CATID = "catid";
-    public static final String COLUMN_CATEGORIES_NAME = "name";
+    public static final String COLUMN_CATEGORIES_CATNAME = "catname";
 
     // catalogue column names
     public static final String COLUMN_CATALOGUE_ID = "id";
@@ -46,7 +88,7 @@ public class eLectSQLiteHelper extends SQLiteOpenHelper {
     public static final String COLUMN_CATALOGUE_TYPE = "type";
 
     // BOOKS columns
-    public static final String COLUMN_BOOKS_BOOKID = "id";
+    public static final String COLUMN_BOOKS_BOOKID = "bookid";
     public static final String COLUMN_BOOKS_TITLE = "title";
     public static final String COLUMN_BOOKS_AUTHORID = "authorid";
     public static final String COLUMN_BOOKS_EXTCAT = "extcat";
@@ -64,13 +106,12 @@ public class eLectSQLiteHelper extends SQLiteOpenHelper {
     public static final String COLUMN_BOOKS_TOGETHER = "together";
 
 
-    public static final String COLUMN_TOPICS_ID = "id";
-    public static final String COLUMN_TOPICS_NAME = "name";
+    public static final String COLUMN_TOPICS_ID = "topicid";
+    public static final String COLUMN_TOPICS_NAME = "topname";
 
-    public static final String COLUMN_TOPICSCAT_ID = "id";
-    public static final String COLUMN_TOPICSCAT_NAME = "name";
+    public static final String COLUMN_TOPICSCAT_ID = "topicid";
+    public static final String COLUMN_TOPICSCAT_NAME = "catid";
 
-    public static final String COLUMN_BOOKTOPICS_ID = "id";
     public static final String COLUMN_BOOKTOPICS_BOOKID = "bookid";
     public static final String COLUMN_BOOKTOPICS_TOPICID = "topicid";
 
@@ -136,8 +177,8 @@ public class eLectSQLiteHelper extends SQLiteOpenHelper {
 
     // Create table SQL
     private static final String CREATE_TABLE_CATEGORIES = "CREATE TABLE " + TABLE_CATEGORIES + " ("
-            + COLUMN_CATEGORIES_CATID + " TEXT PRIMARY KEY AUTOINCREMENT, "
-            + COLUMN_CATEGORIES_NAME + " TEXT NOT NULL " + ")";
+            + COLUMN_CATEGORIES_CATID + " TEXT PRIMARY KEY, "
+            + COLUMN_CATEGORIES_CATNAME + " TEXT NOT NULL " + ")";
 
 
     private static final String CREATE_TABLE_TOPICS = "CREATE TABLE " + TABLE_TOPICS + " ("
@@ -147,7 +188,6 @@ public class eLectSQLiteHelper extends SQLiteOpenHelper {
 
 
     private static final String CREATE_TABLE_BOOKTOPICS = "CREATE TABLE " + TABLE_BOOKTOPICS + " ("
-            + COLUMN_BOOKTOPICS_ID + " TEXT PRIMARY KEY, "
             + COLUMN_BOOKTOPICS_BOOKID + " TEXT NOT NULL, "
             + COLUMN_BOOKTOPICS_TOPICID + " TEXT NOT NULL"
             + ");";
@@ -183,23 +223,21 @@ public class eLectSQLiteHelper extends SQLiteOpenHelper {
             + ");";
 
     private static final String CREATE_TABLE_WISHLIST = "CREATE TABLE " + TABLE_WISHLIST + " ("
-            + COLUMN_WISHLIST_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, "
+            + COLUMN_WISHLIST_ID + " INTEGER PRIMARY KEY, "
             + COLUMN_WISHLIST_BOOKID + " TEXT NOT NULL "
             + ");";
 
 
-    public eLectSQLiteHelper(Context context) {
+    public eLectSQLiteHelper(Context context, Context ctx) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
+        this.ctx = ctx;
     }
 
-    public eLectSQLiteHelper(@Nullable Context context, @Nullable String name, @Nullable SQLiteDatabase.CursorFactory factory, int version) {
-        super(context, name, factory, version);
-    }
 
     @Override
     public void onCreate(SQLiteDatabase db) {
 
-        db.execSQL(CREATE_TABLE_CATEGORIES);
+       /* db.execSQL(CREATE_TABLE_CATEGORIES);
         db.execSQL(CREATE_TABLE_TOPICS);
         db.execSQL(CREATE_TABLE_TOPICSCATEGORIES);
         db.execSQL(CREATE_TABLE_BOOKTOPICS);
@@ -211,7 +249,7 @@ public class eLectSQLiteHelper extends SQLiteOpenHelper {
         db.execSQL(CREATE_TABLE_BOOKAUTHOR);
         db.execSQL(CREATE_TABLE_READBOOK);
         db.execSQL(CREATE_TABLE_WISHLIST);
-        db.execSQL(CREATE_TABLE_VERSION);
+        db.execSQL(CREATE_TABLE_VERSION);*/
     }
 
     @Override
@@ -219,4 +257,107 @@ public class eLectSQLiteHelper extends SQLiteOpenHelper {
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_CATEGORIES);
         onCreate(db);
     }
+    /**
+     * Fetches books grouped by category and then by topic.
+     * Returns a Map where each key is "<catid> - <catName>" and its value
+     * is a List of topic-maps. Each topic-map contains:
+     *   "id"    -> topicId (String)
+     *   "name"  -> topicName (String)
+     *   "books" -> List of book-maps, each with: "id", "title", "author", "cb", "ca"
+     */
+    public Map<String, List<Map<String, Object>>> fetchAllBooksGroupedByCategoryAndTopic() {
+        SQLiteDatabase db = getReadableDatabase();
+
+        // 1) Run the same SQL you had in Obj-C
+        String sql =
+                "SELECT c.catid, c.catname, " +
+                        "       t.topicid, t.topname, " +
+                        "       b.bookid, b.title      AS book_title, " +
+                        "       b.showorder           " +
+                        "FROM CATEGORIES c " +
+                        "LEFT JOIN TOPICSCATEGORIES tc ON tc.catid   = c.catid " +
+                        "LEFT JOIN TOPICS          t  ON t.topicid  = tc.topicid " +
+                        "LEFT JOIN BOOKTOPICS      bt ON bt.topicid = t.topicid " +
+                        "LEFT JOIN BOOKS           b  ON b.bookid   = bt.bookid " +
+                        "ORDER BY CAST(c.catid AS INTEGER), " +
+                        "         CAST(t.topicid AS INTEGER), " +
+                        "         CAST(b.showorder AS FLOAT);";
+
+        Cursor cur = db.rawQuery(sql, null);
+
+        // 2) Build a temporary structure: categoryKey → ( topicKey → [ bookDicts ] )
+        LinkedHashMap<String,LinkedHashMap<String,ArrayList<Map<String,String>>>> temp =
+                new LinkedHashMap<>();
+
+        while (cur.moveToNext()) {
+            // Category
+            String catId   = cur.getString(0);
+            String catName = cur.getString(1);
+            String categoryKey = catId + " - " + catName;
+
+            // Topic
+            String topicId   = cur.getString(2);
+            String topicName = cur.getString(3);
+            String topicKey  = topicId + " - " + topicName;
+
+            // Book (may be NULL if no book)
+            String bookId    = cur.isNull(4) ? null : cur.getString(4);
+            String bookTitle = cur.isNull(5) ? ""   : cur.getString(5);
+
+            // Ensure we have a map for this category
+            if (!temp.containsKey(categoryKey)) {
+                temp.put(categoryKey, new LinkedHashMap<>());
+            }
+            LinkedHashMap<String,ArrayList<Map<String,String>>> topicsMap = temp.get(categoryKey);
+
+            // Ensure we have a list for this topic
+            if (!topicsMap.containsKey(topicKey)) {
+                topicsMap.put(topicKey, new ArrayList<>());
+            }
+            ArrayList<Map<String,String>> booksList = topicsMap.get(topicKey);
+
+            // If there's a real book, append it
+            if (bookId != null) {
+                Map<String,String> bookDict = new LinkedHashMap<>();
+                bookDict.put("id",    bookId);
+                bookDict.put("title", bookTitle);
+                booksList.add(bookDict);
+            }
+        }
+        cur.close();
+
+        // 3) Flatten into the final: categoryKey → [ { id, name, books:@[...] }, … ]
+        LinkedHashMap<String,List<Map<String,Object>>> result = new LinkedHashMap<>();
+
+        for (Map.Entry<String,LinkedHashMap<String,ArrayList<Map<String,String>>>> catEntry
+                : temp.entrySet()) {
+            String categoryKey = catEntry.getKey();
+            LinkedHashMap<String,ArrayList<Map<String,String>>> topicsMap = catEntry.getValue();
+
+            List<Map<String,Object>> topicList = new ArrayList<>();
+
+            for (Map.Entry<String,ArrayList<Map<String,String>>> topEntry
+                    : topicsMap.entrySet()) {
+                String topicKey = topEntry.getKey();
+                ArrayList<Map<String,String>> books = topEntry.getValue();
+
+                // Split topicKey = "t3 - Theology"
+                String[] parts = topicKey.split(" - ", 2);
+                String tId   = parts[0];
+                String tName = parts.length > 1 ? parts[1] : "";
+
+                Map<String,Object> topicDict = new LinkedHashMap<>();
+                topicDict.put("id",    tId);
+                topicDict.put("name",  tName);
+                topicDict.put("books", books);
+
+                topicList.add(topicDict);
+            }
+
+            result.put(categoryKey, topicList);
+        }
+
+        return result;
+    }
+
 }

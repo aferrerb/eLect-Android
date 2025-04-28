@@ -11,6 +11,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 import androidx.gridlayout.widget.GridLayout;
 import android.view.ViewGroup;
+import android.content.Intent;
+import com.appleia.elect.CatalogueActivity;
 
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -63,7 +65,29 @@ public class HomePageActivity extends AppCompatActivity {
     }
 
     private void handleIconTap(int index) {
-        Toast.makeText(this, "Tapped: " + titles[index], Toast.LENGTH_SHORT).show();
-        // TODO: navigate based on index…
+
+        switch (index) {
+            case 0:
+                // Catalogue
+                startActivity(new Intent(this, CatalogueActivity.class));
+                break;
+            case 1:
+                // Progressive Plan
+                //startActivity(new Intent(this, PlanActivity.class));
+                break;
+            case 2:
+                // Books Read
+                // startActivity(new Intent(this, BooksReadActivity.class));
+                break;
+            case 3:
+                // Wishlist
+                //startActivity(new Intent(this, WishlistActivity.class));
+                break;
+            // …and so on for the other tiles
+
+            default:
+                Toast.makeText(this, "Tapped: " + titles[index], Toast.LENGTH_SHORT).show();
+                // TODO: navigate based on index…
+        }
     }
 }
