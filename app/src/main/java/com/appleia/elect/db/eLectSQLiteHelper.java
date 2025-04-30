@@ -15,9 +15,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class eLectSQLiteHelper extends SQLiteOpenHelper {
 
@@ -359,5 +362,58 @@ public class eLectSQLiteHelper extends SQLiteOpenHelper {
 
         return result;
     }
+
+    public Map<String, Map<String, List<Map<String, String>>>> fetchBooksGroupedByYearAndCategory() {
+        SQLiteDatabase db = this.getReadableDatabase();
+        String sql =
+                "SELECT pp.id AS ppyear_id, pp.name AS ppyear_name, " +
+                        "pc.ppcat AS ppcat_id, pc.name AS ppcat_name, " +
+                        "b.bookid AS book_id, b.title AS book_title, " +
+                        "b.cb AS book_cb, b.ca AS book_ca, b.together AS book_together, " +
+                        "b.showorder AS book_showorder, " +
+                        "b.authorid AS author_id, a.name AS author_name " +
+                        "FROM BOOKS b " +
+                        "LEFT JOIN PPCAT pc ON b.ppcat = pc.ppcat " +
+                        "LEFT JOIN PPYEAR pp ON b.ppyear = pp.id " +
+                        "LEFT JOIN Authors a ON b.authorid = a.authorid " +
+                        "WHERE pp.id IS NOT NULL AND pc.ppcat IS NOT NULL " +
+                        "ORDER BY pp.id, CAST(pc.ppcat AS INTEGER), CAST(b.showorder AS FLOAT)";
+
+        Cursor c = db.rawQuery(sql, null);
+        Map<String, Map<String, List<Map<String,String>>>> result = new LinkedHashMap<>();
+        Set<String> seen = new HashSet<>();
+
+        while (c.moveToNext()) {
+            String yearId   = c.getString(c.getColumnIndexOrThrow("ppyear_id"));
+            String yearName = c.getString(c.getColumnIndexOrThrow("ppyear_name"));
+            String catId    = c.getString(c.getColumnIndexOrThrow("ppcat_id"));
+            String catName  = c.getString(c.getColumnIndexOrThrow("ppcat_name"));
+            String bookId   = c.getString(c.getColumnIndexOrThrow("book_id"));
+            if (seen.contains(bookId)) continue;
+            seen.add(bookId);
+
+            String title  = c.getString(c.getColumnIndexOrThrow("book_title"));
+            String author = c.getString(c.getColumnIndexOrThrow("author_name"));
+            String cb     = c.getString(c.getColumnIndexOrThrow("book_cb"));
+            String ca     = c.getString(c.getColumnIndexOrThrow("book_ca"));
+
+            String yearKey = yearId + " - " + yearName;
+            String catKey  = catId  + " - " + catName;
+
+            result
+                    .computeIfAbsent(yearKey, k -> new LinkedHashMap<>())
+                    .computeIfAbsent(catKey,  k -> new ArrayList<>())
+                    .add(new HashMap<String,String>() {{
+                        put("id",       bookId);
+                        put("title",    title);
+                        put("author",   author);
+                        put("cb",       cb);
+                        put("ca",       ca);
+                    }});
+        }
+        c.close();
+        return result;
+    }
+
 
 }

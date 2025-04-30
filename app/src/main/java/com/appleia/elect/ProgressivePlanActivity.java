@@ -27,9 +27,11 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeSet;
+
 import android.graphics.Typeface;
 
-public class CatalogueActivity extends AppCompatActivity {
+public class ProgressivePlanActivity extends AppCompatActivity {
     private WebView webView;
     private View headerView;
     private LinearLayout bottomToolbar;
@@ -46,7 +48,7 @@ public class CatalogueActivity extends AppCompatActivity {
         }
 
         // Root layout container
-       FrameLayout root = new FrameLayout(this);
+        FrameLayout root = new FrameLayout(this);
         setContentView(root);
 
         // ---- Header with Back Button + Title ----
@@ -79,7 +81,7 @@ public class CatalogueActivity extends AppCompatActivity {
 
         // c) title
         TextView titleView = new TextView(this);
-        titleView.setText("Catalogue");
+        titleView.setText("Progressive Plan");
         titleView.setTextColor(Color.WHITE);
         titleView.setTextSize(20);
         titleView.setTypeface(Typeface.DEFAULT_BOLD);
@@ -128,14 +130,12 @@ public class CatalogueActivity extends AppCompatActivity {
 
         // ---- Load your catalogue HTML into webView ----
         dbHelper = new eLectSQLiteHelper(this);
-        Map<String, List<Map<String, Object>>> data = dbHelper.fetchAllBooksGroupedByCategoryAndTopic();
-        String html = generateHtmlFromData(data);
+        Map<String, Map<String, List<Map<String, String>>>> data =
+                dbHelper.fetchBooksGroupedByYearAndCategory();
+        String html = generatePlanHtml(data);
         webView.loadDataWithBaseURL(
                 "file:///android_asset/",
-                html,
-                "text/html",
-                "utf-8",
-                null
+                html, "text/html", "utf-8", null
         );
     }
 
@@ -175,7 +175,7 @@ public class CatalogueActivity extends AppCompatActivity {
             btn.setLayoutParams(iconLp);
             int blue = Color.parseColor("#3359A2");
             btn.setImageTintList(ColorStateList.valueOf(blue));
-           // btn.setLayoutParams(new LinearLayout.LayoutParams(iconSize, iconSize));
+            // btn.setLayoutParams(new LinearLayout.LayoutParams(iconSize, iconSize));
             final int idx = i;
             btn.setOnClickListener(v -> onToolbarItemClicked(idx));
             item.addView(btn);
@@ -194,133 +194,121 @@ public class CatalogueActivity extends AppCompatActivity {
     private void onToolbarItemClicked(int index) {
         switch (index) {
             case 0: startActivity(new Intent(this, HomePageActivity.class)); break;
-            case 1: /* Already here */ break;
-            case 2: startActivity(new Intent(this, HomePageActivity.class)); break;
+            case 1: startActivity(new Intent(this, CatalogueActivity.class)); break;
+            case 2: /* Already here */ break;
             case 3: startActivity(new Intent(this, HomePageActivity.class)); break;
             case 4: startActivity(new Intent(this, HomePageActivity.class)); break;
         }
     }
 
     // TODO: Generate the same HTML string as the iOS generateHTMLFromData: method
-    private String generateHtmlFromData(Map<String, List<Map<String, Object>>> nestedData) {
+    private String generatePlanHtml(Map<String, Map<String, List<Map<String, String>>>> nestedData) {
         StringBuilder html = new StringBuilder();
 
-        // HEAD + CSS
-        html.append("<html><head>")
+        // --- HEAD with CSS & JS ---
+        html.append("<!doctype html><html><head>")
+                // viewport
                 .append("<meta name='viewport' content='width=device-width, initial-scale=1.0'>")
+                // CSS
                 .append("<style>")
-                // Base page
-                .append("body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;")
-                .append("margin:0;padding:0;background:#dee3ef;}")
+                // base
+                .append("body{margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#dee3ef;}")
 
-                // Search bar
-                .append("#searchBar{width:90%;margin:16px auto;display:block;")
-                .append("padding:10px;font-size:16px;border:none;border-radius:12px;")
-                .append("background:#f0f0f0;box-shadow:inset 0 0 2px rgba(0,0,0,0.1);}")
+                // search bar
+                .append("#searchBar{width:90%;margin:16px auto;display:block;padding:10px;font-size:16px;border:none;border-radius:12px;background:#f0f0f0;box-shadow:inset 0 0 2px rgba(0,0,0,0.1);}")
 
-                // Category toggle (full width)
-                .append(".category-toggle{display:block;width:90%;margin:8px auto;")
-                .append("padding:12px;background:#f0f0f0;border:none;border-radius:8px;")
-                .append("font-size:17px;font-weight:bold;color:#1a4c96;text-align:left;}")
-                .append(".category-toggle:hover{background:#e0e0e0;cursor:pointer;}")
+                // Year toggle
+                .append(".year-toggle{display:block;width:90%;margin:8px auto;padding:14px;background:#f0f0f0;border:none;border-radius:8px;font-size:18px;font-weight:bold;color:#1a4c96;text-align:left;}")
+                .append(".year-toggle:hover{background:#e0e0e0;cursor:pointer;}")
 
-                // Category content container
-                .append(".category-content{display:none;margin:0 5% 16px 5%;}")
+                // Year content (hidden by default)
+                .append(".year-content{display:none;margin:0 5% 16px;}")
 
-                // ★ Topic toggle (stacked, full row under its category)
-                .append(".topic-toggle{display:block;width:80%;margin:4px auto;")
-                .append("padding:10px;background:#ffffff;border:none;border-radius:6px;")
-                .append("font-size:15px;color:#1a4c96;text-align:left;}")
-                .append(".topic-toggle:hover{background:#f0f0f7;cursor:pointer;}")
+                // PPCAT toggle
+                .append(".ppcat-toggle{display:block;width:80%;margin:6px auto;padding:12px;background:#ffffff;border:none;border-radius:6px;font-size:16px;color:#1a4c96;text-align:left;}")
+                .append(".ppcat-toggle:hover{background:#f0f0f7;cursor:pointer;}")
 
-                // Topic content container
-                .append(".topic-content{display:none;margin:0 10% 8px 10%;padding-left:16px;}")
+                // PPCAT content (hidden by default)
+                .append(".ppcat-content{display:none;margin:0 10% 8px;padding-left:12px;}")
 
                 // Book link
-                .append("a.book-item{display:block;margin:4px 0 4px 20%;")
-                .append("color:#0645AD;text-decoration:underline;}")
+                .append("a.book-item{display:block;margin:4px 0 4px 20%;color:#0645AD;text-decoration:underline;}")
+                .append("</style>")
 
-                .append("</style>");
-
-        // JS for toggle & search (unchanged)
-        html.append("<script>")
-                .append("function toggle(el){let nxt=el.nextElementSibling;")
-                .append("nxt.style.display=(nxt.style.display==='block'?'none':'block');}")
-                .append("function searchBooks(){let f=document.getElementById('searchBar').value.toLowerCase();")
-                .append("document.querySelectorAll('.category-toggle').forEach(cat=>{")
-                .append(" let cont=cat.nextElementSibling, catMatch=cat.textContent.toLowerCase().includes(f), catShow=false;")
-                .append(" cont.querySelectorAll('.topic-toggle').forEach(tp=>{")
-                .append("   let tcont=tp.nextElementSibling, tpMatch=tp.textContent.toLowerCase().includes(f), tpShow=false;")
-                .append("   tcont.querySelectorAll('.book-item').forEach(bk=>{")
-                .append("     let txt=bk.textContent.toLowerCase(), ok=txt.includes(f)||tpMatch||catMatch;")
-                .append("     bk.style.display=ok?'block':'none'; if(ok) tpShow=true;")
-                .append("   });")
-                .append("   tp.style.display=tpShow||tpMatch||catMatch?'block':'none';")
-                .append("   tcont.style.display=tpShow||tpMatch||catMatch?'block':'none';")
-                .append("   if(tp.style.display==='block') catShow=true;")
-                .append(" });")
-                .append(" cat.style.display=catShow||catMatch?'block':'none';")
-                .append(" cont.style.display=catShow||catMatch?'block':'none';")
-                .append("});}")
+                // JS toggle + search
+                .append("<script>")
+                // toggle show/hide
+                .append("function toggle(el){")
+                .append("let nxt=el.nextElementSibling;")
+                .append("nxt.style.display = (nxt.style.display==='block'?'none':'block');")
+                .append("}")
+                // search across all levels
+                .append("function searchBooks(){")
+                .append("let f=document.getElementById('searchBar').value.toLowerCase();")
+                .append("document.querySelectorAll('.year-toggle').forEach(year=>{")
+                .append("let yCont=year.nextElementSibling, yMatch = year.textContent.toLowerCase().includes(f), showYear=false;")
+                .append("yCont.querySelectorAll('.ppcat-toggle').forEach(cat=>{")
+                .append("let cCont=cat.nextElementSibling, cMatch=cat.textContent.toLowerCase().includes(f), showCat=false;")
+                .append("cCont.querySelectorAll('.book-item').forEach(b=>{")
+                .append("let ok=b.textContent.toLowerCase().includes(f)||cMatch||yMatch;")
+                .append("b.style.display=ok?'block':'none';")
+                .append("if(ok) showCat=true;")
+                .append("});")
+                .append("cat.style.display    = (showCat||cMatch) ? 'block':'none';")
+                .append("cCont.style.display = (showCat||cMatch) ? 'block':'none';")
+                .append("if(cat.style.display==='block') showYear=true;")
+                .append("});")
+                .append("year.style.display  = (showYear||yMatch) ? 'block':'none';")
+                .append("yCont.style.display = (showYear||yMatch) ? 'block':'none';")
+                .append("});")
+                .append("}")
                 .append("</script>")
-                .append("</head><body>")
+                .append("</head>");
+
+        // --- BODY with search input ---
+        html.append("<body>")
                 .append("<input id='searchBar' type='text' placeholder='Search books…' onkeyup='searchBooks()'>");
 
-        // Sort categories by numeric ID
-        List<String> categories = new ArrayList<>(nestedData.keySet());
-        Collections.sort(categories, Comparator.comparing(k -> {
-            String raw = k.split(" - ", 2)[0].replaceAll("^\\D+", "");
-            return Integer.parseInt(raw);
-        }));
+        // --- Sort years by numeric prefix ---
+        List<String> years = new ArrayList<>(nestedData.keySet());
+        Collections.sort(years, Comparator.comparing(k -> Integer.parseInt(k.split(" - ")[0])));
 
-        // Build accordion
-        for (String key : categories) {
-            String[] parts   = key.split(" - ", 2);
-            String rawCatId  = parts[0], catName = parts[1];
-            String displayId = rawCatId.replaceAll("^\\D+", "");
-
-            html.append("<button class='category-toggle' onclick='toggle(this)'>")
-                    .append(displayId).append(" – ").append(catName)
+                // --- Build the accordion ---
+        for (String yearKey : years) {
+            html.append("<button class='year-toggle' onclick='toggle(this)'>")
+                    .append(yearKey)
                     .append("</button>")
-                    .append("<div class='category-content'>");
+                    .append("<div class='year-content'>");
 
-            // 1) filter out topics with no books
-            List<Map<String,Object>> topics = nestedData.get(key);
-            List<Map<String,Object>> nonEmpty = new ArrayList<>();
-            for (Map<String,Object> t : topics) {
-                @SuppressWarnings("unchecked")
-                List<Map<String,String>> books = (List<Map<String,String>>)t.get("books");
-                if (books != null && !books.isEmpty()) nonEmpty.add(t);
-            }
-            // 2) sort topics alphabetically by name
-            Collections.sort(nonEmpty, Comparator.comparing(
-                    t -> ((String)t.get("name")).toLowerCase()
-            ));
+            // sort PPCAT keys
+            Map<String, List<Map<String,String>>> cats = nestedData.get(yearKey);
+            List<String> catKeys = new ArrayList<>(cats.keySet());
+            Collections.sort(catKeys, Comparator.comparing(k -> Integer.parseInt(k.split(" - ")[0])));
 
-            // 3) render
-            for (Map<String,Object> topic : nonEmpty) {
-                String tName = (String)topic.get("name");
-                html.append("<button class='topic-toggle' onclick='toggle(this)'>")
-                        .append(tName).append("</button>")
-                        .append("<div class='topic-content'>");
+            for (String catKey : catKeys) {
+                html.append("<button class='ppcat-toggle' onclick='toggle(this)'>")
+                        .append(catKey)
+                        .append("</button>")
+                        .append("<div class='ppcat-content'>");
 
-                @SuppressWarnings("unchecked")
-                List<Map<String,String>> books = (List<Map<String,String>>)topic.get("books");
-                for (Map<String,String> book : books) {
+                for (Map<String,String> book : cats.get(catKey)) {
                     html.append("<a class='book-item' href='customscheme://book/")
-                            .append(book.get("id")).append("'>")
-                            .append(book.get("title")).append("</a>");
+                            .append(book.get("id"))
+                            .append("'>")
+                            .append(book.get("title"))
+                            .append("</a>");
                 }
-                html.append("</div>");
+
+                html.append("</div>");  // .ppcat-content
             }
 
-            html.append("</div>");
+            html.append("</div>");  // .year-content
         }
 
         html.append("</body></html>");
         return html.toString();
     }
 
-
 }
+
 

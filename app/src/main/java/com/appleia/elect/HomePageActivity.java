@@ -24,10 +24,10 @@ public class HomePageActivity extends AppCompatActivity {
     };
 
     private final int[] icons = {
-            R.drawable.books_white, R.drawable.graph_icon,
-            R.drawable.graph_icon, R.drawable.graph_icon,
-            R.drawable.graph_icon, R.drawable.graph_icon,
-            R.drawable.graph_icon, R.drawable.graph_icon
+            R.drawable.catalogue, R.drawable.trending,
+            R.drawable.book_read, R.drawable.book_to_read,
+            R.drawable.search, R.drawable.scanner,
+            R.drawable.why_read, R.drawable.info
     };
 
     @Override
@@ -73,7 +73,7 @@ public class HomePageActivity extends AppCompatActivity {
                 break;
             case 1:
                 // Progressive Plan
-                //startActivity(new Intent(this, PlanActivity.class));
+                startActivity(new Intent(this, ProgressivePlanActivity.class));
                 break;
             case 2:
                 // Books Read
