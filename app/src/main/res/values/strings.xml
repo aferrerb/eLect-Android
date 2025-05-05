@@ -1,3 +1,9 @@
 <resources>
     <string name="app_name">eLect</string>
+    <string name="nav_home">Home</string>
+    <string name="nav_catalogue">Catalogue</string>
+    <string name="nav_plan">Plan</string>
+    <string name="nav_books_read">Books Read</string>
+    <string name="nav_wishlist">Books 2 Read</string>
+    <string name="back">back</string>
 </resources>

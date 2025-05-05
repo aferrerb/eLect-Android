@@ -40,4 +40,11 @@ dependencies {
     androidTestImplementation libs.espresso.core
     implementation 'com.google.code.gson:gson:2.8.6'
     implementation "androidx.gridlayout:gridlayout:1.0.0"
+    implementation "androidx.cardview:cardview:1.0.0"
+    implementation "com.google.android.material:material:1.7.0"
+    // ZXing Android Embedded (includes IntentIntegrator/IntentResult)
+    implementation 'com.journeyapps:zxing-android-embedded:4.3.0'
+    // ZXing core
+    implementation 'com.google.zxing:core:3.4.1'
+    implementation "androidx.browser:browser:1.8.0"
 }

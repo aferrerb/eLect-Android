@@ -3,12 +3,14 @@ package com.appleia.elect;
 import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.webkit.WebResourceRequest;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
@@ -36,108 +38,147 @@ public class ProgressivePlanActivity extends AppCompatActivity {
     private View headerView;
     private LinearLayout bottomToolbar;
     private eLectSQLiteHelper dbHelper;
+    private FrameLayout root;
+    private int selectedTabIndex;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        getWindow().getDecorView().setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+        );
         // Draw and color the status bar to match header
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
             getWindow().setStatusBarColor(ContextCompat.getColor(this, R.color.header_blue));
         }
-
+        selectedTabIndex=2;
         // Root layout container
-        FrameLayout root = new FrameLayout(this);
+        root = new FrameLayout(this);
         setContentView(root);
-
-        // ---- Header with Back Button + Title ----
-        int headerHeight = dpToPx(56);
-
-        // a) horizontal container
-        LinearLayout headerContainer = new LinearLayout(this);
-        headerContainer.setOrientation(LinearLayout.HORIZONTAL);
-        headerContainer.setBaselineAligned(false);
-        headerContainer.setGravity(Gravity.CENTER_VERTICAL);
-        headerContainer.setBackgroundColor(Color.parseColor("#3359A2"));
-        FrameLayout.LayoutParams headerLp = new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                headerHeight,
-                Gravity.TOP
-        );
-        root.addView(headerContainer, headerLp);
-
-        // b) back-chevron
-        ImageButton backButton = new ImageButton(this);
-        backButton.setImageResource(R.drawable.baseline_chevron_left_24);
-        backButton.setBackgroundColor(Color.TRANSPARENT);
-        backButton.setColorFilter(Color.WHITE);
-        backButton.setOnClickListener(v -> onBackPressed());
-        LinearLayout.LayoutParams backLp = new LinearLayout.LayoutParams(
-                dpToPx(24), dpToPx(24)
-        );
-        backLp.setMarginStart(dpToPx(16));
-        headerContainer.addView(backButton, backLp);
-
-        // c) title
-        TextView titleView = new TextView(this);
-        titleView.setText("Progressive Plan");
-        titleView.setTextColor(Color.WHITE);
-        titleView.setTextSize(20);
-        titleView.setTypeface(Typeface.DEFAULT_BOLD);
-        LinearLayout.LayoutParams titleLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        );
-        titleLp.setMarginStart(dpToPx(8));
-        headerContainer.addView(titleView, titleLp);
-        int toolbarHeight = dpToPx(40)           // your desired 40dp
-                + getBottomPadding();  // plus nav-bar inset if you still want it
-
-        // ---- WebView (fills between header & toolbar) ----
-        webView = new WebView(this);
-        webView.setBackgroundColor(Color.TRANSPARENT);
-        webView.getSettings().setJavaScriptEnabled(true);
-        webView.getSettings().setDomStorageEnabled(true);
-        webView.setWebViewClient(new WebViewClient());
-
-        FrameLayout.LayoutParams webParams = new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-        );
-        webParams.setMargins(
-                0,
-                headerHeight,   // push down below header
-                0,
-                toolbarHeight   // push up above bottom toolbar
-        );
-        root.addView(webView, webParams);
-
-        // ---- Bottom toolbar ----
-        bottomToolbar = new LinearLayout(this);
-        bottomToolbar.setOrientation(LinearLayout.HORIZONTAL);
-        bottomToolbar.setWeightSum(5f);
-        bottomToolbar.setBackgroundColor(Color.WHITE);
-
-        FrameLayout.LayoutParams toolbarParams = new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                toolbarHeight,    // the *same* 40dp+inset we used above
-                Gravity.BOTTOM
-        );
-        root.addView(bottomToolbar, toolbarParams);
-
-        setupToolbarItems();
-
-        // ---- Load your catalogue HTML into webView ----
-        dbHelper = new eLectSQLiteHelper(this);
-        Map<String, Map<String, List<Map<String, String>>>> data =
-                dbHelper.fetchBooksGroupedByYearAndCategory();
-        String html = generatePlanHtml(data);
-        webView.loadDataWithBaseURL(
-                "file:///android_asset/",
-                html, "text/html", "utf-8", null
-        );
+        setupHeader();
+        setupWebView();
+        setupBottomToolbar();
     }
+
+    private void setupHeader () {
+            // ---- Header with Back Button + Title ----
+            int headerHeight = dpToPx(56);
+
+            // a) horizontal container
+            LinearLayout headerContainer = new LinearLayout(this);
+            headerContainer.setOrientation(LinearLayout.HORIZONTAL);
+            headerContainer.setBaselineAligned(false);
+            headerContainer.setGravity(Gravity.CENTER_VERTICAL);
+            headerContainer.setBackgroundColor(Color.parseColor("#3359A2"));
+            FrameLayout.LayoutParams headerLp = new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    headerHeight,
+                    Gravity.TOP
+            );
+            root.addView(headerContainer, headerLp);
+
+            // b) back-chevron
+            ImageButton backButton = new ImageButton(this);
+            backButton.setImageResource(R.drawable.baseline_chevron_left_24);
+            backButton.setBackgroundColor(Color.TRANSPARENT);
+            backButton.setColorFilter(Color.WHITE);
+            backButton.setOnClickListener(v -> onBackPressed());
+            LinearLayout.LayoutParams backLp = new LinearLayout.LayoutParams(
+                    dpToPx(24), dpToPx(24)
+            );
+            backLp.setMarginStart(dpToPx(16));
+            headerContainer.addView(backButton, backLp);
+
+            // c) title
+            TextView titleView = new TextView(this);
+            titleView.setText("Progressive Plan");
+            titleView.setTextColor(Color.WHITE);
+            titleView.setTextSize(20);
+            titleView.setTypeface(Typeface.DEFAULT_BOLD);
+            LinearLayout.LayoutParams titleLp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+            );
+            titleLp.setMarginStart(dpToPx(8));
+            headerContainer.addView(titleView, titleLp);
+    }
+        private void setupWebView () {
+            int headerHeight = dpToPx(56);
+
+            int toolbarHeight = dpToPx(56);         // your desired 40dp
+            //+ getBottomPadding();  // plus nav-bar inset if you still want it
+            // ---- WebView (fills between header & toolbar) ----
+            webView = new WebView(this);
+            webView.setBackgroundColor(Color.TRANSPARENT);
+            webView.getSettings().setJavaScriptEnabled(true);
+            webView.getSettings().setDomStorageEnabled(true);
+            //webView.setWebViewClient(new WebViewClient());
+            webView.setWebViewClient(new WebViewClient() {
+                @Override
+                public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                    Uri uri = request.getUrl();
+                    if ("customscheme".equals(uri.getScheme())) {
+                        String host = uri.getHost();
+                        if ("back".equals(host)) {
+                            finish();               // mimic your iOS “back”
+                            return true;
+                        }
+                        if ("book".equals(host)) {
+                            // last path segment is the book ID
+                            String bookId = uri.getLastPathSegment();
+                            System.out.println("this is the bookid " + bookId);
+                            if (bookId != null) {
+                                Intent i = new Intent(view.getContext(), IndBookActivity.class);
+                                i.putExtra("bookId", bookId);
+                                view.getContext().startActivity(i);
+                            }
+                            return true;
+                        }
+                    }
+                    return super.shouldOverrideUrlLoading(view, request);
+                }
+            });
+
+            FrameLayout.LayoutParams webParams = new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+            );
+            webParams.setMargins(
+                    0,
+                    headerHeight,   // push down below header
+                    0,
+                    toolbarHeight + getBottomPadding()  // push up above bottom toolbar
+            );
+            root.addView(webView, webParams);
+
+            // ---- Bottom toolbar ----
+            bottomToolbar = new LinearLayout(this);
+            bottomToolbar.setOrientation(LinearLayout.HORIZONTAL);
+            bottomToolbar.setWeightSum(5f);
+            bottomToolbar.setBackgroundColor(Color.WHITE);
+
+            FrameLayout.LayoutParams toolbarParams = new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    toolbarHeight,    // the *same* 40dp+inset we used above
+                    Gravity.BOTTOM
+            );
+            root.addView(bottomToolbar, toolbarParams);
+
+
+            // ---- Load your catalogue HTML into webView ----
+            dbHelper = new eLectSQLiteHelper(this);
+            Map<String, Map<String, List<Map<String, String>>>> data =
+                    dbHelper.fetchBooksGroupedByYearAndCategory();
+            String html = generatePlanHtml(data);
+            webView.loadDataWithBaseURL(
+                    "file:///android_asset/",
+                    html, "text/html", "utf-8", null
+            );
+        }
+
 
     // Convert dp to pixels
     private int dpToPx(int dp) {
@@ -151,13 +192,47 @@ public class ProgressivePlanActivity extends AppCompatActivity {
         return resId > 0 ? getResources().getDimensionPixelSize(resId) : 0;
     }
 
+    private void setupBottomToolbar() {
+        // create the toolbar container
+        bottomToolbar = new LinearLayout(this);
+        bottomToolbar.setOrientation(LinearLayout.HORIZONTAL);
+        bottomToolbar.setWeightSum(5f);
+        bottomToolbar.setBackgroundColor(Color.WHITE);
+
+        // ask system how tall the nav‑bar inset is
+        int inset = getBottomPadding();
+
+        // total toolbar height = 56dp for icons + nav‑bar inset
+        int totalHeight = dpToPx(56) + inset;
+
+        // make it span the full width and sit at the very bottom
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                totalHeight,
+                Gravity.BOTTOM
+        );
+        root.addView(bottomToolbar, lp);
+
+        // push its children up by the inset so the 56dp area is for your icons
+        bottomToolbar.setPadding(0, 0, 0, inset);
+
+        // now populate it
+        setupToolbarItems();
+    }
+
     // TODO: Populate bottomToolbar with icon+label items matching the iOS layout
     private void setupToolbarItems() {
         String[] titles = {"Home","Catalogue","Plan","Books Read","Wishlist"};
         int[] icons    = {R.drawable.home, R.drawable.catalogue,R.drawable.trending,R.drawable.book_read,R.drawable.book_to_read};
 
+        int colorActive   = Color.parseColor("#3359A2");  // blue
+        int colorInactive = Color.parseColor("#888888");  // grey
         bottomToolbar.removeAllViews();
+
         for (int i = 0; i < titles.length; i++) {
+            boolean isActive = (i == selectedTabIndex);
+            int iconColor = isActive ? colorInactive : colorActive;
+            int textColor = iconColor;
             LinearLayout item = new LinearLayout(this);
             item.setOrientation(LinearLayout.VERTICAL);
             item.setGravity(Gravity.CENTER);
@@ -173,8 +248,8 @@ public class ProgressivePlanActivity extends AppCompatActivity {
 // give the icon itself some extra top margin
             iconLp.topMargin = dpToPx(10);
             btn.setLayoutParams(iconLp);
-            int blue = Color.parseColor("#3359A2");
-            btn.setImageTintList(ColorStateList.valueOf(blue));
+
+            btn.setImageTintList(ColorStateList.valueOf(iconColor));
             // btn.setLayoutParams(new LinearLayout.LayoutParams(iconSize, iconSize));
             final int idx = i;
             btn.setOnClickListener(v -> onToolbarItemClicked(idx));
@@ -183,7 +258,7 @@ public class ProgressivePlanActivity extends AppCompatActivity {
             TextView tv = new TextView(this);
             tv.setText(titles[i]);
             tv.setTextSize(10);
-            tv.setTextColor(blue);
+            tv.setTextColor(textColor);
             tv.setGravity(Gravity.CENTER);
             item.addView(tv);
 
@@ -196,8 +271,8 @@ public class ProgressivePlanActivity extends AppCompatActivity {
             case 0: startActivity(new Intent(this, HomePageActivity.class)); break;
             case 1: startActivity(new Intent(this, CatalogueActivity.class)); break;
             case 2: /* Already here */ break;
-            case 3: startActivity(new Intent(this, HomePageActivity.class)); break;
-            case 4: startActivity(new Intent(this, HomePageActivity.class)); break;
+            case 3: startActivity(new Intent(this, BooksReadActivity.class)); break;
+            case 4: startActivity(new Intent(this, WishListActivity.class)); break;
         }
     }
 

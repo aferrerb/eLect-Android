@@ -3,12 +3,14 @@ package com.appleia.elect;
 import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.webkit.WebResourceRequest;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
@@ -31,13 +33,18 @@ import android.graphics.Typeface;
 
 public class CatalogueActivity extends AppCompatActivity {
     private WebView webView;
-    private View headerView;
+    private FrameLayout root;
     private LinearLayout bottomToolbar;
     private eLectSQLiteHelper dbHelper;
+    private int selectedTabIndex;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        getWindow().getDecorView().setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+        );
 
         // Draw and color the status bar to match header
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
@@ -45,59 +52,84 @@ public class CatalogueActivity extends AppCompatActivity {
             getWindow().setStatusBarColor(ContextCompat.getColor(this, R.color.header_blue));
         }
 
+        selectedTabIndex=1;
         // Root layout container
-       FrameLayout root = new FrameLayout(this);
+        root = new FrameLayout(this);
+
         setContentView(root);
 
-        // ---- Header with Back Button + Title ----
+        setupHeader();
+        setupWebView();
+        setupBottomToolbar();
+    }
+
+    private void setupHeader() {
+        int height = dpToPx(56);
+        LinearLayout header = new LinearLayout(this);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.setBackgroundColor(Color.parseColor("#3359A2"));
+        FrameLayout.LayoutParams hlp = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, height, Gravity.TOP);
+        root.addView(header, hlp);
+
+        ImageButton back = new ImageButton(this);
+        back.setImageResource(R.drawable.baseline_chevron_left_24);
+        back.setBackgroundColor(Color.TRANSPARENT);
+        back.setColorFilter(Color.WHITE);
+        back.setOnClickListener(v -> finish());
+        LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(dpToPx(24), dpToPx(24));
+        blp.setMarginStart(dpToPx(16));
+        header.addView(back, blp);
+
+        TextView title = new TextView(this);
+        title.setText("Catalogue");
+        title.setTextColor(Color.WHITE);
+        title.setTextSize(20);
+        title.setTypeface(Typeface.DEFAULT_BOLD);
+        LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        tlp.setMarginStart(dpToPx(8));
+        header.addView(title, tlp);
+    }
+
+    private void setupWebView() {
         int headerHeight = dpToPx(56);
 
-        // a) horizontal container
-        LinearLayout headerContainer = new LinearLayout(this);
-        headerContainer.setOrientation(LinearLayout.HORIZONTAL);
-        headerContainer.setBaselineAligned(false);
-        headerContainer.setGravity(Gravity.CENTER_VERTICAL);
-        headerContainer.setBackgroundColor(Color.parseColor("#3359A2"));
-        FrameLayout.LayoutParams headerLp = new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                headerHeight,
-                Gravity.TOP
-        );
-        root.addView(headerContainer, headerLp);
-
-        // b) back-chevron
-        ImageButton backButton = new ImageButton(this);
-        backButton.setImageResource(R.drawable.baseline_chevron_left_24);
-        backButton.setBackgroundColor(Color.TRANSPARENT);
-        backButton.setColorFilter(Color.WHITE);
-        backButton.setOnClickListener(v -> onBackPressed());
-        LinearLayout.LayoutParams backLp = new LinearLayout.LayoutParams(
-                dpToPx(24), dpToPx(24)
-        );
-        backLp.setMarginStart(dpToPx(16));
-        headerContainer.addView(backButton, backLp);
-
-        // c) title
-        TextView titleView = new TextView(this);
-        titleView.setText("Catalogue");
-        titleView.setTextColor(Color.WHITE);
-        titleView.setTextSize(20);
-        titleView.setTypeface(Typeface.DEFAULT_BOLD);
-        LinearLayout.LayoutParams titleLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        );
-        titleLp.setMarginStart(dpToPx(8));
-        headerContainer.addView(titleView, titleLp);
-        int toolbarHeight = dpToPx(40)           // your desired 40dp
-                + getBottomPadding();  // plus nav-bar inset if you still want it
+        int toolbarHeight = dpToPx(56);         // your desired 40dp
+                //+ getBottomPadding();  // plus nav-bar inset if you still want it
 
         // ---- WebView (fills between header & toolbar) ----
         webView = new WebView(this);
         webView.setBackgroundColor(Color.TRANSPARENT);
         webView.getSettings().setJavaScriptEnabled(true);
         webView.getSettings().setDomStorageEnabled(true);
-        webView.setWebViewClient(new WebViewClient());
+        //webView.setWebViewClient(new WebViewClient());
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                Uri uri = request.getUrl();
+                if ("customscheme".equals(uri.getScheme())) {
+                    String host = uri.getHost();
+                    if ("back".equals(host)) {
+                        finish();               // mimic your iOS “back”
+                        return true;
+                    }
+                    if ("book".equals(host)) {
+                        // last path segment is the book ID
+                        String bookId = uri.getLastPathSegment();
+                        if (bookId != null) {
+                            Intent i = new Intent(view.getContext(), IndBookActivity.class);
+                            i.putExtra("bookId", bookId);
+                            view.getContext().startActivity(i);
+                        }
+                        return true;
+                    }
+                }
+                return super.shouldOverrideUrlLoading(view, request);
+            }
+        });
+
 
         FrameLayout.LayoutParams webParams = new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
@@ -107,24 +139,11 @@ public class CatalogueActivity extends AppCompatActivity {
                 0,
                 headerHeight,   // push down below header
                 0,
-                toolbarHeight   // push up above bottom toolbar
+                toolbarHeight + getBottomPadding()// push up above bottom toolbar
         );
         root.addView(webView, webParams);
 
-        // ---- Bottom toolbar ----
-        bottomToolbar = new LinearLayout(this);
-        bottomToolbar.setOrientation(LinearLayout.HORIZONTAL);
-        bottomToolbar.setWeightSum(5f);
-        bottomToolbar.setBackgroundColor(Color.WHITE);
 
-        FrameLayout.LayoutParams toolbarParams = new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                toolbarHeight,    // the *same* 40dp+inset we used above
-                Gravity.BOTTOM
-        );
-        root.addView(bottomToolbar, toolbarParams);
-
-        setupToolbarItems();
 
         // ---- Load your catalogue HTML into webView ----
         dbHelper = new eLectSQLiteHelper(this);
@@ -151,52 +170,12 @@ public class CatalogueActivity extends AppCompatActivity {
         return resId > 0 ? getResources().getDimensionPixelSize(resId) : 0;
     }
 
-    // TODO: Populate bottomToolbar with icon+label items matching the iOS layout
-    private void setupToolbarItems() {
-        String[] titles = {"Home","Catalogue","Plan","Books Read","Wishlist"};
-        int[] icons    = {R.drawable.home, R.drawable.catalogue,R.drawable.trending,R.drawable.book_read,R.drawable.book_to_read};
-
-        bottomToolbar.removeAllViews();
-        for (int i = 0; i < titles.length; i++) {
-            LinearLayout item = new LinearLayout(this);
-            item.setOrientation(LinearLayout.VERTICAL);
-            item.setGravity(Gravity.CENTER);
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0,
-                    ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-            item.setLayoutParams(lp);
-
-            ImageButton btn = new ImageButton(this);
-            btn.setImageResource(icons[i]);
-            btn.setBackgroundColor(Color.TRANSPARENT);
-            int iconSize = dpToPx(24);
-            LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(iconSize, iconSize);
-// give the icon itself some extra top margin
-            iconLp.topMargin = dpToPx(10);
-            btn.setLayoutParams(iconLp);
-            int blue = Color.parseColor("#3359A2");
-            btn.setImageTintList(ColorStateList.valueOf(blue));
-           // btn.setLayoutParams(new LinearLayout.LayoutParams(iconSize, iconSize));
-            final int idx = i;
-            btn.setOnClickListener(v -> onToolbarItemClicked(idx));
-            item.addView(btn);
-
-            TextView tv = new TextView(this);
-            tv.setText(titles[i]);
-            tv.setTextSize(10);
-            tv.setTextColor(blue);
-            tv.setGravity(Gravity.CENTER);
-            item.addView(tv);
-
-            bottomToolbar.addView(item);
-        }
-    }
-
     private void onToolbarItemClicked(int index) {
         switch (index) {
             case 0: startActivity(new Intent(this, HomePageActivity.class)); break;
             case 1: /* Already here */ break;
-            case 2: startActivity(new Intent(this, HomePageActivity.class)); break;
-            case 3: startActivity(new Intent(this, HomePageActivity.class)); break;
+            case 2: startActivity(new Intent(this, ProgressivePlanActivity.class)); break;
+            case 3: startActivity(new Intent(this, BooksReadActivity.class)); break;
             case 4: startActivity(new Intent(this, HomePageActivity.class)); break;
         }
     }
@@ -320,6 +299,87 @@ public class CatalogueActivity extends AppCompatActivity {
         html.append("</body></html>");
         return html.toString();
     }
+
+    private void setupBottomToolbar() {
+        // create the toolbar container
+        bottomToolbar = new LinearLayout(this);
+        bottomToolbar.setOrientation(LinearLayout.HORIZONTAL);
+        bottomToolbar.setWeightSum(5f);
+        bottomToolbar.setBackgroundColor(Color.WHITE);
+
+        // ask system how tall the nav‑bar inset is
+        int inset = getBottomPadding();
+
+        // total toolbar height = 56dp for icons + nav‑bar inset
+        int totalHeight = dpToPx(56) + inset;
+
+        // make it span the full width and sit at the very bottom
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                totalHeight,
+                Gravity.BOTTOM
+        );
+        root.addView(bottomToolbar, lp);
+
+        // push its children up by the inset so the 56dp area is for your icons
+        bottomToolbar.setPadding(0, 0, 0, inset);
+
+        // now populate it
+        setupToolbarItems();
+    }
+
+    private void setupToolbarItems() {
+        String[] titles = {"Home","Catalogue","Plan","Books Read","Wishlist"};
+        int[] icons    = {
+                R.drawable.home,
+                R.drawable.catalogue,
+                R.drawable.trending,
+                R.drawable.book_read,
+                R.drawable.book_to_read
+        };
+        int colorActive   = Color.parseColor("#3359A2");  // blue
+        int colorInactive = Color.parseColor("#888888");  // grey
+
+        bottomToolbar.removeAllViews();
+        //int blue = Color.parseColor("#3359A2");
+
+        for (int i = 0; i < titles.length; i++) {
+            boolean isActive = (i == selectedTabIndex);
+            int iconColor = isActive ? colorInactive : colorActive;
+            int textColor = iconColor;
+            LinearLayout item = new LinearLayout(this);
+            item.setOrientation(LinearLayout.VERTICAL);
+            item.setGravity(Gravity.CENTER);
+            item.setLayoutParams(new LinearLayout.LayoutParams(
+                    0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f
+            ));
+
+            ImageButton btn = new ImageButton(this);
+            btn.setImageResource(icons[i]);
+            btn.setBackgroundColor(Color.TRANSPARENT);
+            // 24dp icon, 10dp top margin (centers in 56dp)
+            LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(
+                    dpToPx(24), dpToPx(24)
+            );
+            iconLp.topMargin = dpToPx(10);
+            btn.setLayoutParams(iconLp);
+            btn.setImageTintList(ColorStateList.valueOf(iconColor));
+            final int idx = i;
+            btn.setOnClickListener(v -> onToolbarItemClicked(idx));
+            item.addView(btn);
+
+            TextView tv = new TextView(this);
+            tv.setText(titles[i]);
+            tv.setTextSize(10);
+            tv.setTextColor(textColor);
+            tv.setGravity(Gravity.CENTER);
+            item.addView(tv);
+
+            bottomToolbar.addView(item);
+        }
+    }
+
+
 
 
 }

@@ -1,12 +1,15 @@
 package com.appleia.elect.db;
+import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.util.Log;
+import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 
+import com.appleia.elect.BookReadItem;
 import com.google.gson.Gson;
 
 import java.io.File;
@@ -21,6 +24,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+import com.appleia.elect.model.BookItem;   // our new model
+
 
 public class eLectSQLiteHelper extends SQLiteOpenHelper {
 
@@ -76,7 +84,7 @@ public class eLectSQLiteHelper extends SQLiteOpenHelper {
     public static final String TABLE_KEYWORDSBOOKS = "KEYWORDSBOOKS";
     public static final String TABLE_BOOKTOPICS = "BOOKTOPICS";
 
-    public static final String TABLE_WISHLIST = "WISHLIST";
+    public static final String TABLE_WISHLIST = "wishlist";
 
     // Column names
     public static final String COLUMN_CATEGORIES_CATID = "catid";
@@ -415,5 +423,453 @@ public class eLectSQLiteHelper extends SQLiteOpenHelper {
         return result;
     }
 
+    public class Book {
+        public String bookID, title, authorName, link;
+        public String mainPoints, comments, description, cb, ca;
+        // … plus getters/setters or make fields public for brevity …
+    }
+
+    public Book fetchBookDetailsByID(String bookId) {
+        SQLiteDatabase db = getReadableDatabase();
+        String sql =
+                "SELECT b.title, a.name   AS author_name," +
+                        "       b.link             AS link," +
+                        "       b.mainpoints       AS mainPoints," +
+                        "       b.mainpoints       AS mainPoints," +
+                        "       b.comments         AS comments," +
+                        "       b.description      AS description," +
+                        "       b.cb               AS cb," +
+                        "       b.ca               AS ca " +
+                        "  FROM BOOKS b " +
+                        "  LEFT JOIN Authors a ON b.authorid = a.authorid " +
+                        " WHERE b.bookid = ?";
+        Cursor c = db.rawQuery(sql, new String[]{bookId});
+        Book book = null;
+        if (c.moveToFirst()) {
+            book = new Book();
+            book.bookID     = bookId;
+            book.title      = c.getString(c.getColumnIndexOrThrow("title"));
+            book.authorName = c.getString(c.getColumnIndexOrThrow("author_name"));
+            book.link       = c.getString(c.getColumnIndexOrThrow("link"));
+            book.mainPoints = c.getString(c.getColumnIndexOrThrow("mainPoints"));
+            book.comments   = c.getString(c.getColumnIndexOrThrow("comments"));
+            book.description       = c.getString(c.getColumnIndexOrThrow("description"));
+            book.cb         = c.getString(c.getColumnIndexOrThrow("cb"));
+            book.ca         = c.getString(c.getColumnIndexOrThrow("ca"));
+        }
+        c.close();
+        return book;
+    }
+
+
+    public String fetchNoteForBookID(String bookId) {
+        SQLiteDatabase db = getReadableDatabase();
+        String note = "";
+        Cursor c = db.rawQuery(
+                "SELECT notes FROM notes WHERE bookid = ?",
+                new String[]{ bookId }
+        );
+        if (c.moveToFirst()) {
+            note = c.getString(0);
+        }
+        c.close();
+        return note;
+    }
+
+    /** Is this book in the “read” table? */
+    public boolean isBookRead(String bookId) {
+        Cursor c = getReadableDatabase().rawQuery(
+                "SELECT 1 FROM readbook WHERE bookid = ? LIMIT 1",
+                new String[]{ bookId }
+        );
+        boolean exists = c.moveToFirst();
+        c.close();
+        return exists;
+    }
+
+
+    /** Save or update the note for this book (replace-or-insert). */
+    public void saveOrUpdateNoteForBookID(String bookId, String noteText) {
+        SQLiteDatabase db = getWritableDatabase();
+        db.execSQL(
+                "INSERT OR REPLACE INTO notes (bookid, notes) VALUES (?, ?)",
+                new Object[]{ bookId, noteText }
+        );
+    }
+
+    /** Delete the note for this book. */
+    public void deleteNoteForBookID(String bookId) {
+        SQLiteDatabase db = getWritableDatabase();
+        db.execSQL(
+                "DELETE FROM notes WHERE bookid = ?",
+                new Object[]{ bookId }
+        );
+    }
+
+    /** Add or remove from ReadBooks. */
+    public void setBookRead(String bookId, boolean read) {
+        SQLiteDatabase db = getWritableDatabase();
+        if (read) {
+            // build today’s date string in yyyy-MM-dd format
+            String today = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                    .format(new Date());
+            // now insert both bookid and date
+            db.execSQL(
+                    "INSERT OR IGNORE INTO readbook (bookid, date) VALUES (?, ?)",
+                    new Object[]{ bookId, today }
+            );
+        } else {
+            db.execSQL(
+                    "DELETE FROM readbook WHERE bookid = ?",
+                    new Object[]{ bookId }
+            );
+        }
+        // —— DEBUG: does that row now exist? ——
+        try (Cursor c = db.rawQuery(
+                "SELECT 1 FROM readbook WHERE bookid = ? LIMIT 1",
+                new String[]{ bookId }
+        )) {
+            boolean exists = c.moveToFirst();
+            Log.d("DB_TEST", "After " + (read ? "INSERT" : "DELETE")
+                    + " into readbook for " + bookId + "? Exists: " + exists);
+        }
+
+        // —— DEBUG: dump the real schema of readbook ——
+        try (Cursor info = db.rawQuery("PRAGMA table_info('readbook')", null)) {
+            while (info.moveToNext()) {
+                String name    = info.getString(info.getColumnIndexOrThrow("name"));
+                String type    = info.getString(info.getColumnIndexOrThrow("type"));
+                int    notnull = info.getInt   (info.getColumnIndexOrThrow("notnull"));
+                int    pk      = info.getInt   (info.getColumnIndexOrThrow("pk"));
+                Log.d("DB_TEST", String.format(
+                        "COL - %s | TYPE=%s | NOTNULL=%d | PK=%d",
+                        name, type, notnull, pk
+                ));
+            }
+        }
+    }
+
+    public void setBookWish(String bookId, boolean wish) {
+        Log.d("IndBookActivity", "🔔 row_wish clicked!" + bookId + " - "+ wish);
+
+        SQLiteDatabase db = getWritableDatabase();
+        if (wish) {
+            // **exactly the same** pattern, minus the date
+            db.execSQL(
+                    "INSERT OR IGNORE INTO wishlist (bookid) VALUES (?)",
+                    new Object[]{ bookId }
+            );
+        } else {
+            db.execSQL(
+                    "DELETE FROM wishlist WHERE bookid = ?",
+                    new Object[]{ bookId }
+            );
+        }
+        try (Cursor c = db.rawQuery(
+                "SELECT 1 FROM wishlist WHERE bookid = ? LIMIT 1",
+                new String[]{ bookId }
+        )) {
+            boolean exists = c.moveToFirst();
+            Log.d("DB_TEST", "After " + (wish ? "INSERT" : "DELETE")
+                    + ", wishlist.contains(" + bookId + ")? " + exists);
+        }
+
+        // ——— DEBUGGING: dump the actual schema of the wishlist table ———
+        try (Cursor info = db.rawQuery("PRAGMA table_info('wishlist')", null)) {
+            while (info.moveToNext()) {
+                String name    = info.getString(info.getColumnIndexOrThrow("name"));
+                String type    = info.getString(info.getColumnIndexOrThrow("type"));
+                int    notnull = info.getInt   (info.getColumnIndexOrThrow("notnull"));
+                int    pk      = info.getInt   (info.getColumnIndexOrThrow("pk"));
+                Log.d("DB_TEST", String.format(
+                        "COL - %s  |  TYPE=%s  |  NOTNULL=%d  |  PK=%d",
+                        name, type, notnull, pk
+                ));
+            }
+        }
+    }
+    public boolean isBookWish(String bookId) {
+        SQLiteDatabase db = getReadableDatabase();
+        // query() will build the right SQL for you
+        Cursor c = db.query(
+                TABLE_WISHLIST,                       // "WISHLIST"
+                new String[]{ COLUMN_WISHLIST_BOOKID }, // projections (we just need any column)
+                COLUMN_WISHLIST_BOOKID + " = ?",      // selection
+                new String[]{ bookId },               // selectionArgs
+                null, null,                           // groupBy / having
+                null,                                 // orderBy
+                "1"                                   // limit 1
+        );
+        boolean exists = c.moveToFirst();
+        c.close();
+        return exists;
+    }
+
+    public List<Map<String,Object>> fetchBooksRead() {
+        List<Map<String,Object>> list = new ArrayList<>();
+        SQLiteDatabase db = getReadableDatabase();
+        String sql =
+                "SELECT b.bookid AS id, " +
+                        "       b.title  AS BookTitle, " +
+                        "       a.name   AS AuthorName, " +
+                        "       rb.date  AS ReadDate " +
+                        "FROM readBook rb " +
+                        "JOIN Books b   ON rb.bookid   = b.bookid " +
+                        "JOIN Authors a ON b.authorid = a.authorid;";
+        Cursor c = db.rawQuery(sql, null);
+        if (c.moveToFirst()) {
+            do {
+                Map<String,Object> row = new HashMap<>();
+                row.put("id",         c.getString(c.getColumnIndexOrThrow("id")));
+                row.put("BookTitle",  c.getString(c.getColumnIndexOrThrow("BookTitle")));
+                row.put("AuthorName", c.getString(c.getColumnIndexOrThrow("AuthorName")));
+                row.put("ReadDate",   c.getString(c.getColumnIndexOrThrow("ReadDate")));
+                list.add(row);
+            } while (c.moveToNext());
+        }
+        c.close();
+        db.close();
+        return list;
+    }
+
+    /**
+     * Updates the read date for a given book.
+     * @return true if at least one row was updated.
+     */
+    public boolean updateBookReadDate(String bookId, String newDate) {
+        SQLiteDatabase db = getWritableDatabase();
+        ContentValues cv = new ContentValues();
+        cv.put("date", newDate);
+        int rows = db.update(
+                "readBook",        // table
+                cv,                // new values
+                "bookid = ?",      // WHERE clause
+                new String[]{bookId}
+        );
+        db.close();
+        return rows > 0;
+    }
+
+    public List<BookItem> fetchWishlistItems() {
+        List<BookItem> list = new ArrayList<>();
+        SQLiteDatabase db = getReadableDatabase();
+        String sql =
+                "SELECT b.bookid AS id, " +
+                        "       b.title  AS title, " +
+                        "       a.name   AS author " +
+                        "FROM wishlist w " +
+                        "JOIN Books b   ON w.bookid   = b.bookid " +
+                        "JOIN Authors a ON b.authorid = a.authorid;";
+        Cursor c = db.rawQuery(sql, null);
+        if (c.moveToFirst()) {
+            do {
+                String id     = c.getString(c.getColumnIndexOrThrow("id"));
+                String title  = c.getString(c.getColumnIndexOrThrow("title"));
+                String author = c.getString(c.getColumnIndexOrThrow("author"));
+                list.add(new BookItem(id, title, author));
+            } while (c.moveToNext());
+        }
+        c.close();
+        db.close();
+        return list;
+    }
+
+    /**
+     * Removes a book from the wishlist.
+     * @return true if at least one row was deleted.
+     */
+    public boolean removeWishlistItem(String bookId) {
+        SQLiteDatabase db = getWritableDatabase();
+        int rows = db.delete(
+                "wishlist",           // table name
+                "bookid = ?",         // WHERE
+                new String[]{bookId}  // args
+        );
+        db.close();
+        return rows > 0;
+    }
+
+    public List<String> fetchAllBookTitles() {
+        List<String> results = new ArrayList<>();
+        SQLiteDatabase db = getReadableDatabase();
+        Cursor c = db.rawQuery(
+                "SELECT DISTINCT title FROM Books",
+                null
+        );
+        if (c.moveToFirst()) {
+            do {
+                results.add(c.getString(0));
+            } while (c.moveToNext());
+        }
+        c.close();
+        db.close();
+        return results;
+    }
+
+    /** Returns all distinct author names from the Authors table. */
+    public List<String> fetchAllAuthors() {
+        List<String> results = new ArrayList<>();
+        SQLiteDatabase db = getReadableDatabase();
+        Cursor c = db.rawQuery(
+                "SELECT DISTINCT name FROM Authors",
+                null
+        );
+        if (c.moveToFirst()) {
+            do {
+                results.add(c.getString(0));
+            } while (c.moveToNext());
+        }
+        c.close();
+        db.close();
+        return results;
+    }
+
+    /** Returns all distinct topic names from the Topics table. */
+    public List<String> fetchAllTopics() {
+        List<String> results = new ArrayList<>();
+        SQLiteDatabase db = getReadableDatabase();
+        Cursor c = db.rawQuery(
+                "SELECT DISTINCT topname FROM Topics",
+                null
+        );
+        if (c.moveToFirst()) {
+            do {
+                results.add(c.getString(0));
+            } while (c.moveToNext());
+        }
+        c.close();
+        db.close();
+        return results;
+    }
+
+    public List<BookItem> fetchBooksForAuthorID(String authorId) {
+        List<BookItem> list = new ArrayList<>();
+        SQLiteDatabase db = getReadableDatabase();
+        String sql =
+                "SELECT b.bookid AS id, b.title AS title, a.name AS author " +
+                        "FROM Books b " +
+                        "JOIN Authors a ON b.authorid = a.authorid " +
+                        "WHERE b.authorid = ?";
+        Cursor c = db.rawQuery(sql, new String[]{ authorId });
+        if (c.moveToFirst()) {
+            do {
+                String id     = c.getString(c.getColumnIndexOrThrow("id"));
+                String title  = c.getString(c.getColumnIndexOrThrow("title"));
+                String author = c.getString(c.getColumnIndexOrThrow("author"));
+                list.add(new BookItem(id, title, author));
+            } while (c.moveToNext());
+        }
+        c.close();
+        db.close();
+        return list;
+    }
+
+    /**
+     * Fetch all books (id, title, author) for a given topicID.
+     * Assumes you have a join‑table BookTopics(bookid, topicid).
+     */
+    public List<BookItem> fetchBooksForTopicID(String topicId) {
+        List<BookItem> list = new ArrayList<>();
+        SQLiteDatabase db = getReadableDatabase();
+        String sql =
+                "SELECT b.bookid AS id, b.title AS title, a.name AS author " +
+                        "FROM Books b " +
+                        "JOIN Authors a       ON b.authorid    = a.authorid " +
+                        "JOIN BookTopics bt    ON b.bookid      = bt.bookid " +
+                        "JOIN Topics t         ON bt.topicid    = t.topicid " +
+                        "WHERE t.topicid = ?";
+        Cursor c = db.rawQuery(sql, new String[]{ topicId });
+        if (c.moveToFirst()) {
+            do {
+                String id     = c.getString(c.getColumnIndexOrThrow("id"));
+                String title  = c.getString(c.getColumnIndexOrThrow("title"));
+                String author = c.getString(c.getColumnIndexOrThrow("author"));
+                list.add(new BookItem(id, title, author));
+            } while (c.moveToNext());
+        }
+        c.close();
+        db.close();
+        return list;
+    }
+
+    public String fetchAuthorIDForName(String name) {
+        String id = null;
+        SQLiteDatabase db = getReadableDatabase();
+        Cursor c = db.rawQuery(
+                "SELECT authorid FROM Authors WHERE name = ?",
+                new String[]{ name }
+        );
+        if (c.moveToFirst()) {
+            id = c.getString(0);
+        }
+        c.close();
+        db.close();
+        return id;
+    }
+
+    /**
+     * Find the topicid for a given topic name.
+     */
+    public String fetchTopicIDForTopicName(String topicName) {
+        String id = null;
+        SQLiteDatabase db = getReadableDatabase();
+        Cursor c = db.rawQuery(
+                "SELECT topicid FROM Topics WHERE topname = ?",
+                new String[]{ topicName }
+        );
+        if (c.moveToFirst()) {
+            id = c.getString(0);
+        }
+        c.close();
+        db.close();
+        return id;
+    }
+
+    public String fetchBookIDForTitle(String title) {
+        String id = null;
+        SQLiteDatabase db = getReadableDatabase();
+        Cursor c = db.rawQuery(
+                "SELECT bookid FROM Books WHERE title = ?",
+                new String[]{ title }
+        );
+        if (c.moveToFirst()) {
+            id = c.getString(0);
+        }
+        c.close();
+        db.close();
+        return id;
+    }
+
+    public String fetchDBVersionFromDatabase() {
+        String apversion = "";
+        SQLiteDatabase db = null;
+        Cursor cursor = null;
+        try {
+            db = getReadableDatabase();
+            // Select only the apversion column, order by id DESC so the latest is first, limit to 1 row
+            cursor = db.query(
+                    "version",                         // table
+                    new String[]{"apversion"},        // columns
+                    null,                              // selection
+                    null,                              // selectionArgs
+                    null,                              // groupBy
+                    null,                              // having
+                    "id DESC",                         // orderBy
+                    "1"                                // limit
+            );
+
+            if (cursor != null && cursor.moveToFirst()) {
+                apversion = cursor.getString(0);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            // optionally log or handle
+        } finally {
+            if (cursor != null) cursor.close();
+            if (db != null) db.close();
+        }
+
+        return apversion.trim();
+    }
 
 }
