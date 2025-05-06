@@ -24,6 +24,8 @@ import com.appleia.elect.db.eLectSQLiteHelper;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import io.branch.referral.validators.IntegrationValidator;
+
 public class HomePageActivity extends AppCompatActivity {
 
     private eLectSQLiteHelper dbHelper;
@@ -204,6 +206,12 @@ public class HomePageActivity extends AppCompatActivity {
                 .setNegativeButton("OK", null);
 
         builder.show();
+    }
+    @Override
+    protected void onStart() {
+        super.onStart();
+        // This will run the Branch integration checks and log any issues to Logcat
+        IntegrationValidator.validate(this);
     }
 
 }
