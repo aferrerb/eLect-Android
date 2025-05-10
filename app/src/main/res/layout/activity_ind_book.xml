@@ -42,6 +42,20 @@
         android:textStyle="bold"
         app:layout_constraintTop_toTopOf="@id/header_bg"
         app:layout_constraintStart_toEndOf="@id/btn_back"
+        app:layout_constraintEnd_toStartOf="@id/btn_share" />
+
+    <!-- Share button, same vertical position as back -->
+    <ImageButton
+        android:id="@+id/btn_share"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:layout_marginTop="20dp"
+        android:layout_marginEnd="16dp"
+        android:background="@android:color/transparent"
+        android:src="@drawable/share"
+        app:tint="@android:color/white"
+
+        app:layout_constraintTop_toTopOf="@id/header_bg"
         app:layout_constraintEnd_toEndOf="parent" />
 
     <!-- 4) Scrollable content -->

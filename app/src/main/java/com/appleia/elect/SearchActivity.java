@@ -1,5 +1,6 @@
 package com.appleia.elect;
 
+
 import android.app.DatePickerDialog;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -304,23 +305,53 @@ public class SearchActivity extends AppCompatActivity implements DatePickerDialo
             for (String s : allBooks) if (s.toLowerCase().contains(lower)) b.add(s);
             for (String s : allAuthors) if (s.toLowerCase().contains(lower)) a.add(s);
             for (String s : allTopics) if (s.toLowerCase().contains(lower)) t.add(s);
-            webView.loadDataWithBaseURL(null, generateSearchHtml(b, a, t), "text/html", "utf-8", null);
+            Set<String> readIds     = dbHelper.fetchReadBookIds();
+            Set<String> wishListIds = dbHelper.fetchWishListBookIds();
+            //webView.loadDataWithBaseURL(null, generateSearchHtml(b, a, t), "text/html", "utf-8", null);
+            webView.loadDataWithBaseURL(null,
+                             // pass in your ID-sets here
+                                            generateSearchHtml(b, a, t, readIds, wishListIds),
+                    "text/html",
+                    "utf-8",
+                    null
+            );
         }
     }
 
-    private String generateSearchHtml(List<String> books, List<String> authors, List<String> topics) {
+    private String generateSearchHtml(List<String> books,
+                                     List<String> authors, List<String> topics, Set<String> readIds,
+                                      Set<String> wishListIds){
         StringBuilder sb = new StringBuilder();
         sb.append("<html><head><meta name='viewport' content='width=device-width, initial-scale=1.0'><style>")
                 .append("body{font-family:-apple-system,sans-serif;margin:0;padding:16px;background:#dee3ef;color:black;}")
                 .append("h2{margin-top:24px;color:#1a4c96;font-size:18px;}")
                 .append("ul{list-style:none;padding:0;margin-top:8px;}")
                 .append("li{margin-bottom:8px;font-size:16px;}")
-                .append("a{color:#0645AD;text-decoration:none;}")
+                //.append("a{color:#0645AD;text-decoration:none;}")
+                .append("a.book-item{color:#0645AD;text-decoration:none;}")
+                .append("a.book-item.book-read{color:#4CAF50!important;}")
+                .append("a.book-item.book-wishlist{color:#0D47A1!important;font-weight:bold;}")
                 .append("</style></head><body>");
         if (!books.isEmpty()) {
             sb.append("<h2>Books</h2><ul>");
-            for (String s : books) sb.append("<li><a href='customscheme://book/")
-                    .append(Uri.encode(s)).append("'>📖 ").append(s).append("</a></li>");
+            //for (String s : books) sb.append("<li><a href='customscheme://book/")
+            //        .append(Uri.encode(s)).append("'>📖 ").append(s).append("</a></li>");
+            for (String s : books) {
+                // look up its numeric ID
+                String id = dbHelper.fetchBookIDForTitle(s);
+                // decide which CSS class it gets
+                String cls = "book-item";
+                if (id != null) {
+                    if (readIds.contains(id)) {
+                        cls += " book-read";
+                    } else if (wishListIds.contains(id)) {
+                        cls += " book-wishlist";
+                    }
+                }
+                sb.append("<li><a class='").append(cls)
+                        .append("' href='customscheme://book/").append(Uri.encode(s))
+                        .append("'>📖 ").append(s).append("</a></li>");
+            }
             sb.append("</ul>");
         }
         if (!authors.isEmpty()) {

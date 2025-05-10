@@ -29,7 +29,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeSet;
+import java.util.Set;
 
 import android.graphics.Typeface;
 
@@ -172,11 +172,16 @@ public class ProgressivePlanActivity extends AppCompatActivity {
             dbHelper = new eLectSQLiteHelper(this);
             Map<String, Map<String, List<Map<String, String>>>> data =
                     dbHelper.fetchBooksGroupedByYearAndCategory();
-            String html = generatePlanHtml(data);
-            webView.loadDataWithBaseURL(
-                    "file:///android_asset/",
-                    html, "text/html", "utf-8", null
-            );
+            Set<String> readIds     = dbHelper.fetchReadBookIds();
+            Set<String> wishListIds = dbHelper.fetchWishListBookIds();
+
+            //String html = generatePlanHtml(data);
+            String html = generatePlanHtml(data, readIds, wishListIds);
+            webView.loadDataWithBaseURL("file:///android_asset/", html, "text/html", "utf-8", null);
+            //webView.loadDataWithBaseURL(
+            //        "file:///android_asset/",
+            //        html, "text/html", "utf-8", null
+            //);
         }
 
 
@@ -277,7 +282,8 @@ public class ProgressivePlanActivity extends AppCompatActivity {
     }
 
     // TODO: Generate the same HTML string as the iOS generateHTMLFromData: method
-    private String generatePlanHtml(Map<String, Map<String, List<Map<String, String>>>> nestedData) {
+    private String generatePlanHtml(Map<String, Map<String, List<Map<String, String>>>> nestedData, Set<String> readIds,
+                                    Set<String> wishListIds) {
         StringBuilder html = new StringBuilder();
 
         // --- HEAD with CSS & JS ---
@@ -307,7 +313,22 @@ public class ProgressivePlanActivity extends AppCompatActivity {
                 .append(".ppcat-content{display:none;margin:0 10% 8px;padding-left:12px;}")
 
                 // Book link
-                .append("a.book-item{display:block;margin:4px 0 4px 20%;color:#0645AD;text-decoration:underline;}")
+                //.append("a.book-item{display:block;margin:4px 0 4px 20%;color:#0645AD;text-decoration:underline;}")
+                .append("a.book-item {")
+                .append("display: block;")
+                .append("margin: 4px 0 4px 20%;")
+                .append("color: #0645AD;")
+
+                .append("}")
+// 2) overrides for read & wishlist
+                .append("a.book-item.book-read {")
+                .append("color: #4CAF50 !important;")
+                .append("}")
+                .append("a.book-item.book-wishlist {")
+                .append("color: #0D47A1 !important;")
+                .append("font-weight: bold;")
+                .append("}")
+                .append("text-decoration: underline;")
                 .append("</style>")
 
                 // JS toggle + search
@@ -367,11 +388,26 @@ public class ProgressivePlanActivity extends AppCompatActivity {
                         .append("<div class='ppcat-content'>");
 
                 for (Map<String,String> book : cats.get(catKey)) {
-                    html.append("<a class='book-item' href='customscheme://book/")
-                            .append(book.get("id"))
-                            .append("'>")
-                            .append(book.get("title"))
+                    String id    = book.get("id");
+                    String title = book.get("title");
+
+// pick the right CSS class
+                    String cls = "book-item";
+                    if (readIds.contains(id)) {
+                        cls += " book-read";
+                    } else if (wishListIds.contains(id)) {
+                        cls += " book-wishlist";
+                    }
+
+                    html.append("<a class='").append(cls)
+                            .append("' href='customscheme://book/").append(id).append("'>")
+                            .append(title)
                             .append("</a>");
+                    //html.append("<a class='book-item' href='customscheme://book/")
+                    //        .append(book.get("id"))
+                    //        .append("'>")
+                    //        .append(book.get("title"))
+                    //        .append("</a>");
                 }
 
                 html.append("</div>");  // .ppcat-content

@@ -4,6 +4,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="com.google.android.gms.permission.AD_ID"/>
     <application
+        android:name=".MyApp"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -13,7 +14,32 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme"
         tools:targetApi="31">
-        <activity android:name=".HomePageActivity" />
+        <activity
+            android:name=".HomePageActivity"
+            android:exported="true">
+
+            <!-- Force a fresh Branch session on EVERY app-link launch -->
+            <meta-data
+                android:name="branch_force_new_session"
+                android:value="true" />
+
+            <!-- Branch App Links – Live App -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="anafb.app.link" />
+            </intent-filter>
+
+            <!-- Custom URI scheme (elect://open/…) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="elect" android:host="open" />
+            </intent-filter>
+        </activity>
+
         <activity android:name=".CatalogueActivity" />
         <activity android:name=".ProgressivePlanActivity" />
         <activity android:name=".BooksReadActivity" />

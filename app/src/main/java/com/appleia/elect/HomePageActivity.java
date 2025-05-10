@@ -7,6 +7,7 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.Window;
@@ -24,6 +25,10 @@ import com.appleia.elect.db.eLectSQLiteHelper;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import org.json.JSONObject;
+
+import io.branch.referral.Branch;
+import io.branch.referral.BranchError;
 import io.branch.referral.validators.IntegrationValidator;
 
 public class HomePageActivity extends AppCompatActivity {
@@ -49,29 +54,31 @@ public class HomePageActivity extends AppCompatActivity {
         setContentView(R.layout.activity_home_page);
 
         GridLayout grid = findViewById(R.id.iconGrid);
+        grid.setColumnCount(2);
+        grid.setRowCount(4);
         LayoutInflater inflater = getLayoutInflater();
+
 
         for (int i = 0; i < titles.length; i++) {
             View item = inflater.inflate(R.layout.home_icon_item, grid, false);
-
-            // bind icon + label as before
             ImageView img = item.findViewById(R.id.iconImage);
-            TextView lbl = item.findViewById(R.id.iconLabel);
+            TextView lbl  = item.findViewById(R.id.iconLabel);
             img.setImageResource(icons[i]);
+            img.setContentDescription(titles[i]);
             lbl.setText(titles[i]);
-            final int index = i;
-            item.setOnClickListener(v -> handleIconTap(index));
+            final int idx = i;
+            item.setOnClickListener(v -> handleIconTap(idx));
 
-            // *** Key part: give each item a 0dp width and 1f column weight ***
-            GridLayout.LayoutParams params = new GridLayout.LayoutParams();
-            params.width = 0;  // 0dp
-            params.height = ViewGroup.LayoutParams.WRAP_CONTENT;
-            // span exactly 1 column, but take up 1 part of the available space
-            params.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f);
-            // optional: vertical spacing
-            params.setMargins(10, 10, 10, 10);
-
+            // *** Crucial: 0dp + 1f weight on BOTH width and height ***
+            GridLayout.LayoutParams params = new GridLayout.LayoutParams(
+                    GridLayout.spec(GridLayout.UNDEFINED, 1f),
+                    GridLayout.spec(GridLayout.UNDEFINED, 1f)
+            );
+            params.width  = 0;   // share equally across columns
+            params.height = 0;   // share equally across rows
+            params.setMargins(8,8,8,8);
             item.setLayoutParams(params);
+
             grid.addView(item);
         }
     }
@@ -207,11 +214,43 @@ public class HomePageActivity extends AppCompatActivity {
 
         builder.show();
     }
+
     @Override
     protected void onStart() {
         super.onStart();
-        // This will run the Branch integration checks and log any issues to Logcat
-        IntegrationValidator.validate(this);
+        // (Optional) sanity-check your manifest
+        //IntegrationValidator.validate(this);
+
+        // This init() will *always* fire your callback when launched via Branch link:
+        Branch.sessionBuilder(this)
+                .withCallback(new Branch.BranchReferralInitListener() {
+                    @Override
+                    public void onInitFinished(JSONObject referringParams, BranchError error) {
+                        if (error != null) {
+                            Log.e("HomePage", "Branch init error: " + error.getMessage());
+                            return;
+                        }
+                        // Grab your custom param:
+                        String bookId = referringParams.optString("book_id");
+                        if (!bookId.isEmpty()) {
+                            Log.d("HomePage", "Deep-link to book " + bookId);
+                            startActivity(
+                                    new Intent(HomePageActivity.this, IndBookActivity.class)
+                                            .putExtra("bookId", bookId)
+                            );
+                        }
+                    }
+                })
+                .withData(getIntent().getData())
+                .init();
     }
 
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        // update the Intent so getIntent().getData() returns the new link URI
+        setIntent(intent);
+        // (Optional) you can re-call the same init() here if you like,
+        // but with branch_force_new_session in the manifest it isn’t required.
+    }
 }

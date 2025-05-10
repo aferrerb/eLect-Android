@@ -279,31 +279,33 @@ public class eLectSQLiteHelper extends SQLiteOpenHelper {
     public Map<String, List<Map<String, Object>>> fetchAllBooksGroupedByCategoryAndTopic() {
         SQLiteDatabase db = getReadableDatabase();
 
-        // 1) Run the same SQL you had in Obj-C
+        // 1) Enhanced SQL: include b.ca, b.cb and a.name AS author_name
         String sql =
                 "SELECT c.catid, c.catname, " +
                         "       t.topicid, t.topname, " +
                         "       b.bookid, b.title      AS book_title, " +
-                        "       b.showorder           " +
+                        "       b.ca, b.cb, " +
+                        "       a.name               AS author_name " +
                         "FROM CATEGORIES c " +
                         "LEFT JOIN TOPICSCATEGORIES tc ON tc.catid   = c.catid " +
                         "LEFT JOIN TOPICS          t  ON t.topicid  = tc.topicid " +
                         "LEFT JOIN BOOKTOPICS      bt ON bt.topicid = t.topicid " +
                         "LEFT JOIN BOOKS           b  ON b.bookid   = bt.bookid " +
+                        "LEFT JOIN AUTHORS         a  ON a.authorid = b.authorid " +
                         "ORDER BY CAST(c.catid AS INTEGER), " +
                         "         CAST(t.topicid AS INTEGER), " +
                         "         CAST(b.showorder AS FLOAT);";
 
         Cursor cur = db.rawQuery(sql, null);
 
-        // 2) Build a temporary structure: categoryKey → ( topicKey → [ bookDicts ] )
-        LinkedHashMap<String,LinkedHashMap<String,ArrayList<Map<String,String>>>> temp =
+        // 2) Build temporary map: categoryKey → ( topicKey → [ bookDicts ] )
+        LinkedHashMap<String, LinkedHashMap<String, ArrayList<Map<String, String>>>> temp =
                 new LinkedHashMap<>();
 
         while (cur.moveToNext()) {
             // Category
-            String catId   = cur.getString(0);
-            String catName = cur.getString(1);
+            String catId      = cur.getString(0);
+            String catName    = cur.getString(1);
             String categoryKey = catId + " - " + catName;
 
             // Topic
@@ -311,53 +313,55 @@ public class eLectSQLiteHelper extends SQLiteOpenHelper {
             String topicName = cur.getString(3);
             String topicKey  = topicId + " - " + topicName;
 
-            // Book (may be NULL if no book)
+            // Book (may be NULL)
             String bookId    = cur.isNull(4) ? null : cur.getString(4);
             String bookTitle = cur.isNull(5) ? ""   : cur.getString(5);
+            // New fields
+            String ca        = cur.isNull(6) ? "" : cur.getString(6);
+            String cb        = cur.isNull(7) ? "" : cur.getString(7);
+            String author    = cur.isNull(8) ? "" : cur.getString(8);
 
-            // Ensure we have a map for this category
-            if (!temp.containsKey(categoryKey)) {
-                temp.put(categoryKey, new LinkedHashMap<>());
-            }
-            LinkedHashMap<String,ArrayList<Map<String,String>>> topicsMap = temp.get(categoryKey);
+            // Ensure category entry
+            temp.computeIfAbsent(categoryKey, k -> new LinkedHashMap<>());
+            LinkedHashMap<String, ArrayList<Map<String, String>>> topicsMap = temp.get(categoryKey);
 
-            // Ensure we have a list for this topic
-            if (!topicsMap.containsKey(topicKey)) {
-                topicsMap.put(topicKey, new ArrayList<>());
-            }
-            ArrayList<Map<String,String>> booksList = topicsMap.get(topicKey);
+            // Ensure topic entry
+            topicsMap.computeIfAbsent(topicKey, k -> new ArrayList<>());
+            ArrayList<Map<String, String>> booksList = topicsMap.get(topicKey);
 
-            // If there's a real book, append it
+            // Append book if real
             if (bookId != null) {
-                Map<String,String> bookDict = new LinkedHashMap<>();
-                bookDict.put("id",    bookId);
-                bookDict.put("title", bookTitle);
+                Map<String, String> bookDict = new LinkedHashMap<>();
+                bookDict.put("id",     bookId);
+                bookDict.put("title",  bookTitle);
+                bookDict.put("ca",     ca);
+                bookDict.put("cb",     cb);
+                bookDict.put("author", author);
                 booksList.add(bookDict);
             }
         }
         cur.close();
 
-        // 3) Flatten into the final: categoryKey → [ { id, name, books:@[...] }, … ]
-        LinkedHashMap<String,List<Map<String,Object>>> result = new LinkedHashMap<>();
+        // 3) Flatten into final: categoryKey → [ { id, name, books:@[...] }, … ]
+        LinkedHashMap<String, List<Map<String, Object>>> result = new LinkedHashMap<>();
 
-        for (Map.Entry<String,LinkedHashMap<String,ArrayList<Map<String,String>>>> catEntry
+        for (Map.Entry<String, LinkedHashMap<String, ArrayList<Map<String, String>>>> catEntry
                 : temp.entrySet()) {
             String categoryKey = catEntry.getKey();
-            LinkedHashMap<String,ArrayList<Map<String,String>>> topicsMap = catEntry.getValue();
+            LinkedHashMap<String, ArrayList<Map<String, String>>> topicsMap = catEntry.getValue();
 
-            List<Map<String,Object>> topicList = new ArrayList<>();
+            List<Map<String, Object>> topicList = new ArrayList<>();
 
-            for (Map.Entry<String,ArrayList<Map<String,String>>> topEntry
+            for (Map.Entry<String, ArrayList<Map<String, String>>> topEntry
                     : topicsMap.entrySet()) {
                 String topicKey = topEntry.getKey();
-                ArrayList<Map<String,String>> books = topEntry.getValue();
+                ArrayList<Map<String, String>> books = topEntry.getValue();
 
-                // Split topicKey = "t3 - Theology"
                 String[] parts = topicKey.split(" - ", 2);
                 String tId   = parts[0];
                 String tName = parts.length > 1 ? parts[1] : "";
 
-                Map<String,Object> topicDict = new LinkedHashMap<>();
+                Map<String, Object> topicDict = new LinkedHashMap<>();
                 topicDict.put("id",    tId);
                 topicDict.put("name",  tName);
                 topicDict.put("books", books);
@@ -370,6 +374,7 @@ public class eLectSQLiteHelper extends SQLiteOpenHelper {
 
         return result;
     }
+
 
     public Map<String, Map<String, List<Map<String, String>>>> fetchBooksGroupedByYearAndCategory() {
         SQLiteDatabase db = this.getReadableDatabase();
@@ -871,5 +876,30 @@ public class eLectSQLiteHelper extends SQLiteOpenHelper {
 
         return apversion.trim();
     }
+
+    /** Return all book IDs that the user has marked “read”. */
+    public Set<String> fetchReadBookIds() {
+        SQLiteDatabase db = getReadableDatabase();
+        Cursor c = db.rawQuery("SELECT bookid FROM readbook", null);
+        Set<String> ids = new HashSet<>();
+        while (c.moveToNext()) {
+            ids.add(c.getString(0));
+        }
+        c.close();
+        return ids;
+    }
+
+    /** Return all book IDs in the user’s wishlist. */
+    public Set<String> fetchWishListBookIds() {
+        SQLiteDatabase db = getReadableDatabase();
+        Cursor c = db.rawQuery("SELECT bookid FROM wishlist", null);
+        Set<String> ids = new HashSet<>();
+        while (c.moveToNext()) {
+            ids.add(c.getString(0));
+        }
+        c.close();
+        return ids;
+    }
+
 
 }

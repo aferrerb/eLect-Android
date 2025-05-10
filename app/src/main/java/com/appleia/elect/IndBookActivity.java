@@ -22,8 +22,9 @@ import androidx.core.content.ContextCompat;
 import com.appleia.elect.db.eLectSQLiteHelper;
 import com.google.android.material.textfield.TextInputEditText;
 import androidx.browser.customtabs.CustomTabsIntent;
-import androidx.core.content.ContextCompat;
-import android.net.Uri;
+import io.branch.indexing.BranchUniversalObject;
+import io.branch.referral.util.LinkProperties;
+import io.branch.referral.BranchError;
 
 
 public class IndBookActivity extends AppCompatActivity {
@@ -60,6 +61,8 @@ public class IndBookActivity extends AppCompatActivity {
         TextView tvTitle    = findViewById(R.id.tv_title);
         tvTitle.setText(book.title);
         btnBack.setOnClickListener(v -> finish());
+        ImageButton btnShare = findViewById(R.id.btn_share);
+        btnShare.setOnClickListener(v -> shareBookLink());
 
         // 4) Detail rows
         setupRow(R.id.row_title,      R.drawable.title,    "Title: "       + book.title, null);
@@ -181,7 +184,7 @@ public class IndBookActivity extends AppCompatActivity {
             TextView  tv  = navItem.findViewById(R.id.nav_label);
             iv.setImageResource(iconRes);
             tv.setText(labelRes);
-            boolean selected = (i == 3);
+            boolean selected = (i == 5);
             int tintColor = ContextCompat.getColor(this,
                     selected ? android.R.color.black : R.color.header_blue
             );
@@ -217,4 +220,49 @@ public class IndBookActivity extends AppCompatActivity {
             row.setOnClickListener(null);
         }
     }
+    private void shareBookLink() {
+        Log.d("IndBookActivity", "► shareBookLink() called");
+        //Toast.makeText(this, "Share tapped", Toast.LENGTH_SHORT).show();
+
+        // 1) Build the BranchUniversalObject for this book
+        BranchUniversalObject buo = new BranchUniversalObject()
+                .setCanonicalIdentifier("book/" + bookId)
+                .setTitle(book.title)
+                .setContentDescription("Check out “" + book.title + "” on eLect");
+        buo.getContentMetadata().addCustomMetadata("book_id", bookId);
+
+        // 2) Configure LinkProperties
+        LinkProperties lp = new LinkProperties()
+                .setFeature("share")
+                .setChannel("android")
+                .addControlParameter("book_id", bookId);
+
+        // 3) Generate the short URL
+        buo.generateShortUrl(this, lp, (url, error) -> {
+            // This should always run, whether success or error.
+            Log.d("BranchShare", "generateShortUrl callback. url=" + url + " error=" + error);
+            if (error != null) {
+                //Toast.makeText(this,
+                //                "Branch error: " + error.getMessage(),
+                //                Toast.LENGTH_LONG)
+                //        .show();
+                return;
+            }
+
+            // 4) Success: show another toast so we know this fired
+            //Toast.makeText(this,
+              //              "Branch link generated!",
+              //              Toast.LENGTH_SHORT)
+              //      .show();
+
+            // 5) Now fire the Android share sheet
+            Intent shareIntent = new Intent(Intent.ACTION_SEND);
+            shareIntent.setType("text/plain");
+            String shareMessage = book.title + "\nRead more: " + url;
+            shareIntent.putExtra(Intent.EXTRA_TEXT, shareMessage);
+            startActivity(Intent.createChooser(shareIntent, "Share via"));
+        });
+    }
+
+
 }

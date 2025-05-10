@@ -30,6 +30,7 @@ import com.appleia.elect.model.BookItem;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 public class BooksViewActivity extends AppCompatActivity {
     private LinearLayout header;
@@ -242,27 +243,43 @@ public class BooksViewActivity extends AppCompatActivity {
     }
 
     private void loadBooksHtml() {
+        //StringBuilder sb = new StringBuilder();
+        // grab the read & wishlist ID‐sets
+        Set<String> readIds     = dbHelper.fetchReadBookIds();
+        Set<String> wishListIds = dbHelper.fetchWishListBookIds();
         StringBuilder sb = new StringBuilder();
-       // sb.append("<html><head><meta name='viewport' content='width=device-width, initial-scale=1.0'><style>")
-       //         .append("body{font-family:-apple-system,sans-serif;margin:0;padding:16px;background:#DEE3EF;}")
-       //         .append(".book-item{background:#fff;margin:10px auto;padding:15px;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.1);max-width:600px;cursor:pointer;}")
-       //         .append(".book-title{font-weight:bold;font-size:18px;color:#0645AD;margin-bottom:4px;}")
-       //         .append("</style></head><body>");
+        sb.append("<html><head><meta name='viewport' content='width=device-width, initial-scale=1.0'><style>")
+                          // base styles
+                          .append("body{font-family:-apple-system,sans-serif;margin:0;padding:16px;background:#dee3ef;color:black;}")
+                          .append("h2{margin-top:24px;color:#1a4c96;font-size:18px;}")
+                          .append("ul{list-style:none;padding-left:0;margin-top:8px;}")
+                          .append("li{margin-bottom:8px;font-size:16px;}")
+                          // generic link rule, fully closed
+                          .append("a.book-item{")
+                            .append("text-decoration:none;")
+                            .append("color:#0645AD;")
+                          .append("}")
+                          // overrides for read & wishlist
+                          .append("a.book-item.book-read{")
+                            .append("color:#4CAF50!important;")
+                          .append("}")
+                          .append("a.book-item.book-wishlist{")
+                            .append("color:#0D47A1!important;")
+                            .append("font-weight:bold;")
+                          .append("}")
+                          .append("</style></head><body>");
 
-        sb.append("<html><head><meta name='viewport' …'><style>")
-                   .append("body{font-family:-apple-system,sans-serif;margin:0;"
-                +            "padding:16px;background:#dee3ef;color:black;}")
-                   .append("h2{margin-top:24px;color:#1a4c96;font-size:18px;}")
-                   .append("ul{list-style:none;padding-left:0;margin-top:8px;}")
-                   .append("li{margin-bottom:8px;font-size:16px;}")
-                   .append("a.book-item{text-decoration:none;color:#0645AD;}")
-                   .append("</style></head><body>");
-        sb.append("<h2>Books</h2><ul>");
         for (BookItem b : filteredBooks) {
-            sb.append("<li><a class='book-item' href='customscheme://book/")
-                    .append(b.getId())
-                    .append("'>📖 ")
-                    .append(b.getTitle())
+            String id  = b.getId();
+            String cls = "book-item";
+            if (readIds.contains(id)) {
+                cls += " book-read";
+            } else if (wishListIds.contains(id)) {
+                cls += " book-wishlist";
+            }
+            sb.append("<li><a class='").append(cls)
+                    .append("' href='customscheme://book/").append(id).append("'>")
+                    .append("📖 ").append(b.getTitle())
                     .append("</a></li>");
         }
         sb.append("</ul></body></html>");

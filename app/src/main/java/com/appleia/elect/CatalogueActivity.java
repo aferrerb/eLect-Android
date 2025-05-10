@@ -6,6 +6,7 @@ import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -29,6 +30,8 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+
 import android.graphics.Typeface;
 
 public class CatalogueActivity extends AppCompatActivity {
@@ -148,7 +151,11 @@ public class CatalogueActivity extends AppCompatActivity {
         // ---- Load your catalogue HTML into webView ----
         dbHelper = new eLectSQLiteHelper(this);
         Map<String, List<Map<String, Object>>> data = dbHelper.fetchAllBooksGroupedByCategoryAndTopic();
-        String html = generateHtmlFromData(data);
+        Set<String> readIds     = dbHelper.fetchReadBookIds();
+        Set<String> wishListIds = dbHelper.fetchWishListBookIds();
+        String html = generateHtmlFromData(data, readIds, wishListIds);
+       // String html = generateHtmlFromData(data);
+        Log.d("CATALOG_HTML", html);
         webView.loadDataWithBaseURL(
                 "file:///android_asset/",
                 html,
@@ -181,7 +188,8 @@ public class CatalogueActivity extends AppCompatActivity {
     }
 
     // TODO: Generate the same HTML string as the iOS generateHTMLFromData: method
-    private String generateHtmlFromData(Map<String, List<Map<String, Object>>> nestedData) {
+    private String generateHtmlFromData(Map<String, List<Map<String, Object>>> nestedData, Set<String> readIds,
+                                        Set<String> wishListIds) {
         StringBuilder html = new StringBuilder();
 
         // HEAD + CSS
@@ -216,8 +224,24 @@ public class CatalogueActivity extends AppCompatActivity {
                 .append(".topic-content{display:none;margin:0 10% 8px 10%;padding-left:16px;}")
 
                 // Book link
-                .append("a.book-item{display:block;margin:4px 0 4px 20%;")
-                .append("color:#0645AD;text-decoration:underline;}")
+                .append("a.book-item {")
+                .append("  display: block;")
+                .append("  margin: 4px 0 4px 20%;")
+                .append("  color: #0645AD;")
+                .append("  text-decoration: underline;")
+                .append("}")
+
+                // 2) now the overrides, *outside* the previous block
+                .append("a.book-item.book-read {")
+                .append("  color: #4CAF50 !important;")
+                .append("}")
+
+                .append("a.book-item.book-wishlist {")
+                .append("  color: #0D47A1 !important;")
+                .append("  font-weight: bold;")
+                .append("}")
+                .append("  text-decoration: underline;")
+
 
                 .append("</style>");
 
@@ -286,10 +310,47 @@ public class CatalogueActivity extends AppCompatActivity {
                 @SuppressWarnings("unchecked")
                 List<Map<String,String>> books = (List<Map<String,String>>)topic.get("books");
                 for (Map<String,String> book : books) {
-                    html.append("<a class='book-item' href='customscheme://book/")
-                            .append(book.get("id")).append("'>")
-                            .append(book.get("title")).append("</a>");
+                    String id     = book.get("id");
+                    String title  = book.get("title");
+                    String author = book.get("author");
+                    String caVal  = book.get("ca");
+                    String cbVal  = book.get("cb");
+
+                    // decide CSS class…
+                    String cls = "book-item";
+                    if (readIds.contains(id))      cls += " book-read";
+                    else if (wishListIds.contains(id)) cls += " book-wishlist";
+
+                    // 1) Title + author
+                    html.append("<a class='").append(cls)
+                            .append("' href='customscheme://book/").append(id).append("'>")
+                            .append(title);
+                    if (!author.isEmpty()) {
+                        html.append(" <em>(")
+                                .append(author)
+                                .append(")</em>");
+                    }
+                    html.append("</a>");
+
+                    // 2) ca / cb lines
+                    if (!caVal.isEmpty() || !cbVal.isEmpty()) {
+                        html.append("<div style='margin-left:20%;font-size:0.9em;color:#555;'>");
+                        if (!caVal.isEmpty()) {
+                            html.append("-").append(caVal);
+                        }
+                        if (!caVal.isEmpty() && !cbVal.isEmpty()) {
+                            html.append(" | ");
+                        }
+                        if (!cbVal.isEmpty()) {
+                            html.append("-").append(cbVal);
+                        }
+                        html.append("</div>");
+                    }
                 }
+                    //html.append("<a class='book-item' href='customscheme://book/")
+                    //        .append(book.get("id")).append("'>")
+                    //        .append(book.get("title")).append("</a>");
+                //}
                 html.append("</div>");
             }
 

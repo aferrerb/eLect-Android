@@ -46,22 +46,19 @@
     </LinearLayout>
 
     <!-- Scrollable 2×4 grid -->
-    <ScrollView
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_below="@id/header">
+
 
         <androidx.gridlayout.widget.GridLayout
             android:id="@+id/iconGrid"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:padding="20dp"
+            android:layout_height="match_parent"
+            android:layout_below="@id/header"
+            android:padding="16dp"
+            app:alignmentMode="alignMargins"
             app:columnCount="2"
             app:rowCount="4"
-            app:alignmentMode="alignMargins"
-            app:useDefaultMargins="true" />
-    </ScrollView>
-
-
+            app:useDefaultMargins="true">
+            <!-- items added dynamically in your Activity -->
+        </androidx.gridlayout.widget.GridLayout>
 
 </RelativeLayout>
